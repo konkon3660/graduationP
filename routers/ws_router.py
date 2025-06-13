@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from datetime import datetime
 from services.audio_service import get_audio_streaming, set_audio_streaming
 from services.audio_output_service import play_audio_chunk
+from main import mic_sender  # 전역 객체 import
 
 router = APIRouter()
 clients = set()
@@ -10,6 +11,7 @@ clients = set()
 async def control_ws(websocket: WebSocket):
     await websocket.accept()
     print("🎮 제어 WebSocket 연결됨")
+
     try:
         while True:
             message = await websocket.receive_text()
@@ -17,15 +19,16 @@ async def control_ws(websocket: WebSocket):
 
             if message == "audio_receive_on":
                 set_audio_streaming(True)
+                mic_sender.start()  # 🟢 마이크 송출 시작
                 await websocket.send_text("ack: 음성 수신 시작됨")
 
             elif message == "audio_receive_off":
                 set_audio_streaming(False)
+                mic_sender.stop()   # 🔴 마이크 송출 중지
                 await websocket.send_text("ack: 음성 수신 종료됨")
 
             else:
                 await websocket.send_text(f"명령 수신: {message}")
-
     except Exception as e:
         print(f"제어 연결 종료: {e}")
 

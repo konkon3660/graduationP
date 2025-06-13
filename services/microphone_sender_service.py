@@ -1,34 +1,49 @@
+# services/microphone_sender_service.py
 import asyncio
 import websockets
 import pyaudio
 
-# 오디오 입력 설정
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 16000
-CHUNK = 1024
+class MicrophoneSender:
+    def __init__(self, ws_url):
+        self.ws_url = ws_url
+        self.running = False
+        self.task = None
 
-p = pyaudio.PyAudio()
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK)
+    async def _run(self):
+        FORMAT = pyaudio.paInt16
+        CHANNELS = 1
+        RATE = 16000
+        CHUNK = 1024
 
-async def send_microphone_audio(ws_url: str):
-    async with websockets.connect(ws_url) as websocket:
-        print("🎤 마이크 전송 시작")
+        p = pyaudio.PyAudio()
+        stream = p.open(format=FORMAT,
+                        channels=CHANNELS,
+                        rate=RATE,
+                        input=True,
+                        frames_per_buffer=CHUNK)
+
         try:
-            while True:
-                data = stream.read(CHUNK, exception_on_overflow=False)
-                await websocket.send(data)
+            async with websockets.connect(self.ws_url) as websocket:
+                print("🎤 마이크 송출 시작")
+                while self.running:
+                    data = stream.read(CHUNK, exception_on_overflow=False)
+                    await websocket.send(data)
+                    await asyncio.sleep(0.01)
         except Exception as e:
-            print(f"마이크 송신 중 오류 발생: {e}")
+            print(f"[오류] 마이크 송출 실패: {e}")
         finally:
+            print("🎤 마이크 송출 종료")
             stream.stop_stream()
             stream.close()
             p.terminate()
 
-if __name__ == "__main__":
-    ws_address = "ws://localhost:8000/ws/audio"  # 서버 주소에 맞게 수정
-    asyncio.run(send_microphone_audio(ws_address))
+    def start(self):
+        if not self.running:
+            self.running = True
+            self.task = asyncio.create_task(self._run())
+
+    def stop(self):
+        if self.running:
+            self.running = False
+            if self.task:
+                self.task.cancel()
