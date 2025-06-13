@@ -9,6 +9,16 @@ class MicrophoneSender:
         self.running = False
         self.task = None
 
+    def find_input_device(self, keyword="Brio"):
+        p = pyaudio.PyAudio()
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            if keyword.lower() in info["name"].lower() and info["maxInputChannels"] > 0:
+                print(f"🎙️ 선택된 마이크: {info['name']} (index={i})")
+                return i
+        print("❗ 지정된 키워드를 가진 마이크를 찾지 못했습니다.")
+        return None
+
     async def _run(self):
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
@@ -16,11 +26,23 @@ class MicrophoneSender:
         CHUNK = 1024
 
         p = pyaudio.PyAudio()
-        stream = p.open(format=FORMAT,
-                        channels=CHANNELS,
-                        rate=RATE,
-                        input=True,
-                        frames_per_buffer=CHUNK)
+        device_index = self.find_input_device()
+
+        if device_index is None:
+            print("❌ 마이크 장치가 없어 송출을 중단합니다.")
+            return
+
+        try:
+            stream = p.open(format=FORMAT,
+                            channels=CHANNELS,
+                            rate=RATE,
+                            input=True,
+                            input_device_index=device_index,
+                            frames_per_buffer=CHUNK)
+        except Exception as e:
+            print(f"[마이크 초기화 오류] {e}")
+            p.terminate()
+            return
 
         try:
             async with websockets.connect(self.ws_url) as websocket:
