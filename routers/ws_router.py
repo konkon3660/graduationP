@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from datetime import datetime
 from services.audio_service import get_audio_streaming, set_audio_streaming
+from services.audio_output_service import play_audio_chunk
 
 router = APIRouter()
 clients = set()
@@ -45,6 +46,8 @@ async def audio_ws(websocket: WebSocket):
 
                 if get_audio_streaming():
                     f.write(chunk)
+                    play_audio_chunk(chunk)  # 🔊 이 부분 추가됨
+
                     # 다른 클라이언트에게 중계 (옵션)
                     for client in clients:
                         if client != websocket:
