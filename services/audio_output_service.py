@@ -1,27 +1,24 @@
+# audio_output_service.py
 import pyaudio
 
 p = pyaudio.PyAudio()
+stream = None
 
-def find_output_device(keyword="UAC"):
-    for i in range(p.get_device_count()):
-        info = p.get_device_info_by_index(i)
-        if keyword.lower() in info["name"].lower() and info["maxOutputChannels"] > 0:
-            print(f"🔊 선택된 스피커: {info['name']} (index={i})")
-            return i
-    print("❗ 지정된 키워드를 가진 출력 장치를 찾지 못했습니다.")
-    return None
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100  # 클라이언트와 동일하게 맞추는 것이 중요함
 
-device_index = find_output_device()
-
-try:
-    stream = p.open(format=pyaudio.paInt16,
-                    channels=1,
-                    rate=16000,
-                    output=True,
-                    output_device_index=device_index if device_index is not None else None)
-except Exception as e:
-    print(f"❌ 스피커 열기 실패: {e}")
-    stream = None
+def init_audio_stream():
+    global stream
+    try:
+        stream = p.open(format=FORMAT,
+                        channels=CHANNELS,
+                        rate=RATE,
+                        output=True)
+        print("✅ 오디오 출력 스트림 열기 성공 (기본 출력 장치 사용)")
+    except Exception as e:
+        print(f"❌ 출력 스트림 초기화 실패: {e}")
+        stream = None
 
 def play_audio_chunk(chunk: bytes):
     """
@@ -29,6 +26,8 @@ def play_audio_chunk(chunk: bytes):
     """
     if stream:
         stream.write(chunk)
+    else:
+        print("⚠️ stream is None: 오디오 출력 스트림이 초기화되지 않았습니다.")
 
 def close_audio_stream():
     if stream:
