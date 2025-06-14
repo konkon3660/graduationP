@@ -42,6 +42,7 @@ async def audio_ws(websocket: WebSocket):
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"received_audio_{now}.pcm"
     async def receive_client_audio():
+        init_audio_stream()
         try:
             with open(filename, "wb") as f:
                 while True:
@@ -49,7 +50,6 @@ async def audio_ws(websocket: WebSocket):
 
                     if get_audio_streaming():
                         f.write(chunk)
-                        init_audio_stream()
                         play_audio_chunk(chunk)
                         await mic_sender.broadcast(chunk)
         except WebSocketDisconnect:
