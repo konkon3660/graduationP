@@ -62,11 +62,11 @@ async def audio_ws(websocket: WebSocket):
         finally:
             mic_sender.unregister(websocket)
 
-    async def send_server_mic_audio():
-        while True:
-            await asyncio.sleep(1)  # 🔄 나중에 서버 → 클라이언트 송출 확장용
+    # async def send_server_mic_audio():
+    #     while True:
+    #         await asyncio.sleep(1)  # 🔄 나중에 서버 → 클라이언트 송출 확장용
 
-    await asyncio.gather(
-        receive_client_audio(),
-        send_server_mic_audio()
-    )
+    # await asyncio.gather(
+    #     receive_client_audio(),
+    #     send_server_mic_audio()
+    # )
