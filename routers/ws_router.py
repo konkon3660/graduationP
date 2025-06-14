@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
 from datetime import datetime
 import asyncio
 from services.audio_service import get_audio_streaming, set_audio_streaming
-from services.audio_output_service import play_audio_chunk, init_audio_stream
+from services.audio_output_service import play_audio_chunk#, init_audio_stream
 from services.mic_sender_instance import mic_sender  # ✅ 안전한 방식
 
 router = APIRouter()
