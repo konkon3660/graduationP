@@ -42,7 +42,7 @@ class MicrophoneSender:
     async def _run(self):
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
-        RATE = 16000
+        RATE = 48000
         CHUNK = 1024
 
         p = pyaudio.PyAudio()
