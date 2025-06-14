@@ -1,36 +1,43 @@
 # audio_output_service.py
 import pyaudio
 
-p = pyaudio.PyAudio()
-stream = None
-
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 44100  # 클라이언트와 동일하게 맞추는 것이 중요함
+RATE = 16000  # 클라이언트와 맞춰야 함
+CHUNK = 1024
+
+p = pyaudio.PyAudio()
+stream = None
 
 def init_audio_stream():
     global stream
     try:
+        output_index = None
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            if info.get('maxOutputChannels', 0) > 0:
+                output_index = i
+                print(f"🎧 출력 장치 선택됨: [{i}] {info['name']}")
+                break
+
+        if output_index is None:
+            raise RuntimeError("❌ 출력 장치를 찾을 수 없습니다.")
+
         stream = p.open(format=FORMAT,
                         channels=CHANNELS,
                         rate=RATE,
-                        output=True)
-        print("✅ 오디오 출력 스트림 열기 성공 (기본 출력 장치 사용)")
+                        output=True,
+                        output_device_index=output_index)
+        print("✅ 오디오 출력 스트림 열기 성공")
     except Exception as e:
         print(f"❌ 출력 스트림 초기화 실패: {e}")
         stream = None
 
 def play_audio_chunk(chunk: bytes):
-    """
-    PCM 오디오 데이터를 실시간으로 스피커로 출력합니다.
-    """
     if stream:
-        stream.write(chunk)
+        try:
+            stream.write(chunk)
+        except Exception as e:
+            print(f"❌ 오디오 출력 실패: {e}")
     else:
-        print("⚠️ stream is None: 오디오 출력 스트림이 초기화되지 않았습니다.")
-
-def close_audio_stream():
-    if stream:
-        stream.stop_stream()
-        stream.close()
-    p.terminate()
+        print("⚠️ stream is None: 출력 스트림이 초기화되지 않았습니다.")
