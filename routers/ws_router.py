@@ -41,12 +41,12 @@ async def audio_ws(websocket: WebSocket):
     print("🔗 오디오 WebSocket 연결됨")
 
     # ✅ 스피커 출력 스트림 우선 초기화
-    init_audio_stream()
+    # init_audio_stream()
 
     mic_sender.register(websocket)
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"received_audio_{now}.pcm"
-    
+
     async def receive_client_audio():
         try:
             with open(filename, "wb") as f:
