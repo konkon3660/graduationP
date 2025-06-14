@@ -1,3 +1,3 @@
-from services.mike_service import MicSender
+from services.mic_service import MicSender
 
 mic_sender = MicSender()

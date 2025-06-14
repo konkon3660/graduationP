@@ -52,6 +52,7 @@ async def audio_ws(websocket: WebSocket, request: Request):
 
                     # 🎧 중계는 mic_sender에 맡김
                     await mic_sender.broadcast(chunk)
+                    
     except WebSocketDisconnect:
         print("🎤 오디오 클라이언트 연결 종료")
     finally:
