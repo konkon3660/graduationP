@@ -32,6 +32,7 @@ async def control_ws(websocket: WebSocket):
     except Exception as e:
         print(f"제어 연결 종료: {e}")
 
+
 @router.websocket("/ws/audio")
 async def audio_ws(websocket: WebSocket, request: Request):
     await websocket.accept()
@@ -58,37 +59,9 @@ async def audio_ws(websocket: WebSocket, request: Request):
 
     async def send_server_mic_audio():
         while True:
-            await asyncio.sleep(1)  # 마이크 송출은 mic_sender 내부에서 동작 중이므로 여기는 유지만
+            await asyncio.sleep(1)  # 나중에 확장용
 
-    # 클라이언트 수신 + 서버 송신을 동시에 처리
     await asyncio.gather(
         receive_client_audio(),
         send_server_mic_audio()
     )
-
-    await websocket.accept()
-    mic_sender = request.app.state.mic_sender
-    mic_sender.register(websocket)
-
-    now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"received_audio_{now}.pcm"
-
-    async def receive_client_audio():
-        try:
-            with open(filename, "wb") as f:
-                while True:
-                    chunk = await websocket.receive_bytes()
-
-                    if get_audio_streaming():
-                        f.write(chunk)
-                        play_audio_chunk(chunk)  # 🔊 로컬 재생
-
-                        # 🎧 중계는 mic_sender에 맡김 (클라이언트 → 다른 클라이언트 전파)
-                        await mic_sender.broadcast(chunk)
-        except WebSocketDisconnect:
-            print("🎤 오디오 클라이언트 연결 종료")
-        finally:
-            mic_sender.unregister(websocket)
-
-    # 클라이언트 음성 수신을 병렬로 처리
-    await receive_client_audio()
