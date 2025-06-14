@@ -1,15 +1,32 @@
-# services/microphone_sender_service.py
-
+# microphone_sender_service.py
 import asyncio
-import websockets
 import pyaudio
 
 class MicrophoneSender:
-    def __init__(self, ws_url, keyword="Brio"):
-        self.ws_url = ws_url
+    def __init__(self, keyword="Brio"):
         self.keyword = keyword
         self.running = False
         self.task = None
+        self.connected_clients = set()
+
+    def register(self, websocket):
+        self.connected_clients.add(websocket)
+        print(f"✅ 클라이언트 등록됨 (총 {len(self.connected_clients)}명)")
+
+    def unregister(self, websocket):
+        self.connected_clients.discard(websocket)
+        print(f"❎ 클라이언트 해제됨 (총 {len(self.connected_clients)}명)")
+
+    async def broadcast(self, data: bytes):
+        disconnected = []
+        for ws in self.connected_clients:
+            try:
+                await ws.send_bytes(data)
+            except Exception as e:
+                print(f"❌ 전송 실패: {e}")
+                disconnected.append(ws)
+        for ws in disconnected:
+            self.connected_clients.discard(ws)
 
     def find_input_device(self):
         p = pyaudio.PyAudio()
@@ -30,9 +47,8 @@ class MicrophoneSender:
 
         p = pyaudio.PyAudio()
         device_index = self.find_input_device()
-
         if device_index is None:
-            print("❌ 마이크 장치가 없어 송출을 중단합니다.")
+            print("❌ 마이크 장치 없음")
             return
 
         try:
@@ -42,39 +58,30 @@ class MicrophoneSender:
                             input=True,
                             input_device_index=device_index,
                             frames_per_buffer=CHUNK)
-        except Exception as e:
-            print(f"[마이크 초기화 오류] {e}")
-            p.terminate()
-            return
+            print("🎤 서버 마이크 송출 시작")
 
-        try:
-            async with websockets.connect(self.ws_url) as websocket:
-                print(f"🎤 마이크 송출 시작 → {self.ws_url}")
-                while self.running:
-                    data = stream.read(CHUNK, exception_on_overflow=False)
-                    await websocket.send(data)
-                    await asyncio.sleep(0.05)
-        except asyncio.CancelledError:
-            print("🛑 마이크 송출 작업이 취소되었습니다.")
+            while self.running:
+                data = stream.read(CHUNK, exception_on_overflow=False)
+                await self.broadcast(data)
+                await asyncio.sleep(0.01)
+
         except Exception as e:
-            print(f"[오류] 마이크 송출 실패: {e}")
+            print(f"[마이크 오류] {e}")
         finally:
-            print("🎤 마이크 송출 종료")
             stream.stop_stream()
             stream.close()
             p.terminate()
+            print("🛑 마이크 송출 종료")
 
     def start(self):
         if not self.running:
             self.running = True
-            print("🚀 마이크 송출 태스크 시작")
             self.task = asyncio.create_task(self._run())
-        else:
-            print("⚠️ 마이크 송출은 이미 실행 중입니다.")
+            print("🚀 마이크 송출 태스크 시작")
 
     def stop(self):
         if self.running:
             self.running = False
             if self.task:
                 self.task.cancel()
-                print("🛑 마이크 송출 태스크 중단 요청됨")
+                print("🛑 마이크 송출 태스크 취소됨")
