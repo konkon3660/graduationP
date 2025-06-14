@@ -19,12 +19,12 @@ async def control_ws(websocket: WebSocket):
 
             if message == "audio_receive_on":
                 set_audio_streaming(True)
-                mic_sender.start()  # 🟢 마이크 송출 시작
+                # mic_sender.start()  # 🟢 마이크 송출 시작
                 await websocket.send_text("ack: 음성 수신 시작됨")
 
             elif message == "audio_receive_off":
                 set_audio_streaming(False)
-                mic_sender.stop()   # 🔴 마이크 송출 중지
+                # mic_sender.stop()   # 🔴 마이크 송출 중지
                 await websocket.send_text("ack: 음성 수신 종료됨")
 
             else:
@@ -36,12 +36,10 @@ async def control_ws(websocket: WebSocket):
 @router.websocket("/ws/audio")
 async def audio_ws(websocket: WebSocket, request: Request):
     await websocket.accept()
-    mic_sender = request.app.state.mic_sender
     mic_sender.register(websocket)
 
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"received_audio_{now}.pcm"
-
     async def receive_client_audio():
         try:
             with open(filename, "wb") as f:

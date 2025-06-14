@@ -49,7 +49,7 @@ async def handle_command(command: str) -> str:
         return "ack: 음성 전송 시작됨"
     
     elif command == "audio_send_stop":
-        mic_streamer.start()
+        mic_streamer.stop()
         return "ack: 음성 전송 시작됨"
 
     elif command == "audio_receive_on":
