@@ -6,7 +6,7 @@ p = pyaudio.PyAudio()
 # 오디오 출력 스트림 생성 (16bit, 16000Hz, 모노)
 stream = p.open(format=pyaudio.paInt16,
                 channels=1,
-                rate=16000,
+                rate=48000,
                 output=True)
 
 def play_audio_chunk(chunk: bytes):
