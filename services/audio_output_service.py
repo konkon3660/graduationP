@@ -15,9 +15,10 @@ def init_audio_stream():
         output_index = None
         for i in range(p.get_device_count()):
             info = p.get_device_info_by_index(i)
-            if info.get('maxOutputChannels', 0) > 0:
+            print(f"[{i}] {info['name']} / 출력 채널: {info['maxOutputChannels']}")
+            if info.get('maxOutputChannels', 0) > 0 and 'USB' in info['name']:
                 output_index = i
-                print(f"🎧 출력 장치 선택됨: [{i}] {info['name']}")
+                print(f"🎧 선택된 출력 장치: [{i}] {info['name']}")
                 break
 
         if output_index is None:
@@ -32,6 +33,7 @@ def init_audio_stream():
     except Exception as e:
         print(f"❌ 출력 스트림 초기화 실패: {e}")
         stream = None
+
 
 def play_audio_chunk(chunk: bytes):
     if stream:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
 from datetime import datetime
 from services.audio_service import get_audio_streaming, set_audio_streaming
-from services.audio_output_service import play_audio_chunk
+from services.audio_output_service import play_audio_chunk, init_audio_stream
 from services.mic_sender_instance import mic_sender  # ✅ 안전한 방식
 
 router = APIRouter()
@@ -34,7 +34,7 @@ async def control_ws(websocket: WebSocket):
 
 
 @router.websocket("/ws/audio")
-async def audio_ws(websocket: WebSocket, request: Request):
+async def audio_ws(websocket: WebSocket):
     await websocket.accept()
     mic_sender.register(websocket)
 
@@ -48,6 +48,7 @@ async def audio_ws(websocket: WebSocket, request: Request):
 
                     if get_audio_streaming():
                         f.write(chunk)
+                        init_audio_stream()
                         play_audio_chunk(chunk)
                         await mic_sender.broadcast(chunk)
         except WebSocketDisconnect:
