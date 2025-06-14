@@ -3,7 +3,7 @@ import pyaudio
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 16000  # 클라이언트와 맞춰야 함
+RATE = 44100  # 클라이언트와 맞춰야 함
 CHUNK = 1024
 
 p = pyaudio.PyAudio()
