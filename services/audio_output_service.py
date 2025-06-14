@@ -3,7 +3,7 @@ import pyaudio
 # 기본 설정 값 정의
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000
+RATE = 16000
 CHUNK = 1024
 
 # PyAudio 초기화
