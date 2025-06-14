@@ -34,15 +34,20 @@ async def control_ws(websocket: WebSocket):
         print(f"제어 연결 종료: {e}")
 
 
+
 @router.websocket("/ws/audio")
 async def audio_ws(websocket: WebSocket):
     await websocket.accept()
-    mic_sender.register(websocket)
+    print("🔗 오디오 WebSocket 연결됨")
 
+    # ✅ 스피커 출력 스트림 우선 초기화
+    init_audio_stream()
+
+    mic_sender.register(websocket)
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"received_audio_{now}.pcm"
+    
     async def receive_client_audio():
-        init_audio_stream()
         try:
             with open(filename, "wb") as f:
                 while True:
@@ -59,7 +64,7 @@ async def audio_ws(websocket: WebSocket):
 
     async def send_server_mic_audio():
         while True:
-            await asyncio.sleep(1)  # 나중에 확장용
+            await asyncio.sleep(1)  # 🔄 나중에 서버 → 클라이언트 송출 확장용
 
     await asyncio.gather(
         receive_client_audio(),
