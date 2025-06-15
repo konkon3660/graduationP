@@ -4,7 +4,8 @@ from routers.ws_router import router as ws_router
 from routers.ws_audio_receive import router as audio_receive_router
 from routers.mjpeg_router import router as mjpeg_router
 from routers.ws_audio_send import router as audio_send_router
-from services.microphone_sender_instance import mic_sender, mic_streamer
+from services.microphone_sender_instance import mic_streamer
+from services.mic_sender_instance import mic_sender
 
 app = FastAPI()
 app.state.mic_sender = mic_sender

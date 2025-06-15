@@ -4,6 +4,7 @@ import os
 import sys
 import contextlib
 from services.audio_service import get_audio_streaming
+from utils.alsa_suppress import suppress_alsa_errors
 
 # 🔇 ALSA 경고 로그 억제
 @contextlib.contextmanager
