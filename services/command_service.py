@@ -1,13 +1,33 @@
+# command_service.py
 import asyncio
-from .audio_service import set_audio_streaming,get_audio_streaming
+import json
 import laser_service
-import moter_service  # 모터 제어 모듈 import
+import moter_service
 import sol_service
 from . import mic_service
 from services import microphone_sender_instance
 from services.microphone_sender_instance import mic_streamer
+from services import feed_settings  # 🔶 추가
+from services.feed_service import feed_once
 
 async def handle_command(command: str) -> str:
+    # 먼저 JSON인지 시도
+    try:
+        data = json.loads(command)
+
+        if isinstance(data, dict):
+            # 급식 설정 명령인지 확인
+            if "mode" in data and "interval" in data and "amount" in data:
+                feed_settings.update_settings({
+                    "mode": data["mode"],
+                    "interval": int(data["interval"]),
+                    "amount": int(data["amount"])
+                })
+                return f"ack: 급식 설정 적용됨 (mode={data['mode']}, interval={data['interval']}, amount={data['amount']})"
+    except json.JSONDecodeError:
+        pass  # JSON 형식 아님 → 문자열로 처리
+
+    # 문자열 명령어 처리
     if command == "laser_on":
         laser_service.laser_on()
         return "ack: laser_on 실행됨"
@@ -19,14 +39,21 @@ async def handle_command(command: str) -> str:
     elif command == "fire":
         sol_service.fire()
         return "ack: fire 실행됨"
+    
+    elif command == "feed_now":
+        if feed_settings.feed_config["mode"] == "manual":
+            feed_once()
+            return "ack: 수동 급식 1회 실행됨"
+        else:
+            return "nak: 현재 자동 모드이므로 수동 급식 불가능"
 
     elif command == "forward":
-        moter_service.set_right_motor(80, 0)  # 80% 속도, 정방향
+        moter_service.set_right_motor(80, 0)
         moter_service.set_left_motor(80, 0)
         return "ack: forward 이동"
 
     elif command == "backward":
-        moter_service.set_right_motor(80, 1)  # 역방향
+        moter_service.set_right_motor(80, 1)
         moter_service.set_left_motor(80, 1)
         return "ack: backward 이동"
 
@@ -47,10 +74,10 @@ async def handle_command(command: str) -> str:
     elif command == "audio_send":
         mic_streamer.start()
         return "ack: 음성 전송 시작됨"
-    
+
     elif command == "audio_send_stop":
         mic_streamer.stop()
-        return "ack: 음성 전송 시작됨"
+        return "ack: 음성 전송 중지됨"
 
     elif command == "audio_receive_on":
         microphone_sender_instance.mic_streamer.start()
@@ -62,5 +89,4 @@ async def handle_command(command: str) -> str:
         set_audio_streaming(False)
         return "ack: 음성 수신 OFF"
 
-    else:
-        return f"ack: 알 수 없는 명령: {command}"
+    return f"ack: 알 수 없는 명령: {command}"

@@ -1,3 +1,4 @@
+# ws_router.py
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
@@ -9,8 +10,11 @@ async def control_ws(websocket: WebSocket):
 
     try:
         while True:
-            message = await websocket.receive_text()
-            print(f"[제어 명령 수신] {message}")
-            await websocket.send_text(f"명령 수신: {message}")
-    except Exception as e:
-        print(f"제어 연결 종료: {e}")
+            command = await websocket.receive_text()
+            print(f"[제어 명령 수신] {command}")
+
+            from services.command_service import handle_command
+            response = await handle_command(command)
+            await websocket.send_text(response)
+    except WebSocketDisconnect:
+        print("🔌 제어 WebSocket 연결 종료")
