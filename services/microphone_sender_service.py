@@ -1,9 +1,23 @@
 import asyncio
-from utils.alsa_suppress import suppress_alsa_errors  # 👈 ALSA 로그 제거
+import pyaudio
+import os
+import sys
+import contextlib
 from services.audio_service import get_audio_streaming
 
-with suppress_alsa_errors():
-    import pyaudio  # 👈 import 타이밍이 중요! suppress 안에서 해야 효과 있음
+# 🔇 ALSA 경고 로그 억제
+@contextlib.contextmanager
+def suppress_alsa_stderr():
+    fd = os.open(os.devnull, os.O_WRONLY)
+    stderr_fd = sys.stderr.fileno()
+    saved_stderr = os.dup(stderr_fd)
+    os.dup2(fd, stderr_fd)
+    try:
+        yield
+    finally:
+        os.dup2(saved_stderr, stderr_fd)
+        os.close(fd)
+        os.close(saved_stderr)
 
 class MicrophoneSender:
     def __init__(self):
@@ -46,8 +60,7 @@ class MicrophoneSender:
         RATE = 16000
         CHUNK = 1024
 
-        # ✅ 로그 억제 블록: 전체 마이크 초기화 코드 감싸기
-        with suppress_alsa_errors():
+        with suppress_alsa_stderr():
             p = pyaudio.PyAudio()
             index = self.find_input_device(p)
             if index is None:
@@ -65,10 +78,11 @@ class MicrophoneSender:
                 while self.running:
                     data = stream.read(CHUNK, exception_on_overflow=False)
                     await self.broadcast(data)
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.005)
 
             except Exception as e:
                 print(f"⚠️ 마이크 송출 중 오류 발생: {e}")
+
             finally:
                 stream.stop_stream()
                 stream.close()
