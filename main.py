@@ -1,13 +1,20 @@
-import asyncio
 from fastapi import FastAPI
-from routers import ws_router, mjpeg_router, ws_audio_receive, ws_audio_send
-from services.mic_sender_instance import mic_sender
+from utils.alsa_suppress import suppress_alsa_errors
+from routers import ws_router, mjpeg_router, ws_audio_send, ws_audio_receive
 from services.microphone_sender_instance import mic_streamer
 
 app = FastAPI()
-app.state.mic_sender = mic_sender
-app.state.mic_streamer = mic_streamer
-app.include_router(ws_router.router)
-app.include_router(mjpeg_router.router)
-app.include_router(ws_audio_send.router)
-app.include_router(ws_audio_receive.router)
+
+app.include_router(ws_router)
+app.include_router(mjpeg_router)
+app.include_router(ws_audio_send)
+app.include_router(ws_audio_receive)
+
+@app.on_event("startup")
+async def startup_event():
+    with suppress_alsa_errors():
+        mic_streamer.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    mic_streamer.stop()

@@ -1,30 +1,9 @@
 import asyncio
-import pyaudio
-import ctypes
-import contextlib
+from utils.alsa_suppress import suppress_alsa_errors  # 👈 ALSA 로그 제거
 from services.audio_service import get_audio_streaming
 
-
-# ✅ ALSA 로그 완전 제거용 핸들러
-@contextlib.contextmanager
-def suppress_alsa_errors():
-    try:
-        asound = ctypes.cdll.LoadLibrary("libasound.so")
-        ERROR_HANDLER_FUNC = ctypes.CFUNCTYPE(
-            None, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p
-        )
-        def py_error_handler(filename, line, function, err, fmt):
-            pass
-        c_handler = ERROR_HANDLER_FUNC(py_error_handler)
-        asound.snd_lib_error_set_handler(c_handler)
-        yield
-    finally:
-        asound.snd_lib_error_set_handler(None)
-
-# 🔻 앱 실행 전 적용!
 with suppress_alsa_errors():
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    import pyaudio  # 👈 import 타이밍이 중요! suppress 안에서 해야 효과 있음
 
 class MicrophoneSender:
     def __init__(self):
@@ -67,33 +46,32 @@ class MicrophoneSender:
         RATE = 16000
         CHUNK = 1024
 
-        with suppress_alsa_errors():
-            p = pyaudio.PyAudio()
-            index = self.find_input_device(p)
-            if index is None:
-                return
+        p = pyaudio.PyAudio()
+        index = self.find_input_device(p)
+        if index is None:
+            return
 
-            try:
-                stream = p.open(format=FORMAT,
-                                channels=CHANNELS,
-                                rate=RATE,
-                                input=True,
-                                input_device_index=index,
-                                frames_per_buffer=CHUNK)
-                print("🎤 서버 마이크 송출 시작")
+        try:
+            stream = p.open(format=FORMAT,
+                            channels=CHANNELS,
+                            rate=RATE,
+                            input=True,
+                            input_device_index=index,
+                            frames_per_buffer=CHUNK)
+            print("🎤 서버 마이크 송출 시작")
 
-                while self.running:
-                    data = stream.read(CHUNK, exception_on_overflow=False)
-                    await self.broadcast(data)
-                    await asyncio.sleep(0.01)
+            while self.running:
+                data = stream.read(CHUNK, exception_on_overflow=False)
+                await self.broadcast(data)
+                await asyncio.sleep(0.01)
 
-            except Exception as e:
-                print(f"⚠️ 마이크 송출 중 오류 발생: {e}")
-            finally:
-                stream.stop_stream()
-                stream.close()
-                p.terminate()
-                print("🛑 마이크 송출 종료")
+        except Exception as e:
+            print(f"⚠️ 마이크 송출 중 오류 발생: {e}")
+        finally:
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+            print("🛑 마이크 송출 종료")
 
     def start(self):
         if not self.running:
