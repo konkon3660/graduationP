@@ -2,6 +2,7 @@
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.command_service import handle_command_async
+from services.audio_receive_status import audio_receive_status
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,10 @@ async def websocket_endpoint(websocket: WebSocket):
             command = await websocket.receive_text()
             # 명령 처리 (실제 동작)
             await handle_command_async(command)
+            if command == "audio_receive_on":
+                audio_receive_status.on = True
+            elif command == "audio_receive_off":
+                audio_receive_status.on = False
             # 그대로 응답 (클라에서 그대로 화면에 뿌림)
             await websocket.send_text(command)
     except WebSocketDisconnect:

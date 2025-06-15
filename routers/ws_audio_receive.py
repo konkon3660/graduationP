@@ -1,36 +1,25 @@
-import asyncio
-import pyaudio
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
-router = APIRouter()
+# routers/ws_audio_receive.py
+from services.audio_receive_status import audio_receive_status
 
 @router.websocket("/ws/audio_receive")
 async def websocket_audio_receive(websocket: WebSocket):
     await websocket.accept()
-    print("🎤 [AUDIO_RECEIVE] 서버 마이크 → 클라이언트 송출 시작")
-
-    # 마이크 열기
-    audio = pyaudio.PyAudio()
+    audio_receive_status.ws_clients.add(websocket)
+    print("🎤 [AUDIO_RECEIVE] 연결됨, 기본값: 송출 OFF")
     try:
-        # ⚠️ 입력장치 번호는 실제 환경에 따라 조정(1, 2 등)
-        stream = audio.open(format=pyaudio.paInt16,
-                            channels=1,
-                            rate=16000,
-                            input=True,
-                            frames_per_buffer=1024)
+        import pyaudio
+        audio = pyaudio.PyAudio()
+        stream = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=1024)
         while True:
-            data = stream.read(1024)
-            await websocket.send_bytes(data)
-            await asyncio.sleep(0)  # 딜레이 최소화
-
+            if audio_receive_status.on:
+                data = stream.read(1024)
+                await websocket.send_bytes(data)
+            else:
+                await asyncio.sleep(0.1)  # OFF 상태에서는 잠시 대기
     except WebSocketDisconnect:
-        print("🔌 [AUDIO_RECEIVE] 클라이언트 연결 종료")
-    except Exception as e:
-        print(f"❌ [AUDIO_RECEIVE] 에러: {e}")
+        print("🔌 [AUDIO_RECEIVE] 클라이언트 연결 해제")
     finally:
-        try:
-            stream.stop_stream()
-            stream.close()
-            audio.terminate()
-        except Exception:
-            pass
+        audio_receive_status.ws_clients.discard(websocket)
+        stream.stop_stream()
+        stream.close()
+        audio.terminate()
