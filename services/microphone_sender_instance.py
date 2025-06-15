@@ -2,4 +2,3 @@
 from services.microphone_sender_service import MicrophoneSender
 
 mic_streamer = MicrophoneSender()
-mic_streamer.start()

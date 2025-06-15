@@ -35,26 +35,19 @@ app.include_router(mjpeg_router)
 async def startup_event():
     try:
         print("🚀 서버 시작 중...")
-
-        with suppress_alsa_errors():
-            try:
-                mic_streamer.start()
-                print("🎤 서버 마이크 송출 시작")
-            except Exception as e:
-                print(f"❌ [mic_streamer.start()] 예외 발생: {e}")
-
-        try:
-            threading.Thread(
-                target=run_audio_output_loop_in_background,
-                daemon=True
-            ).start()
-            print("🔊 오디오 출력 루프 시작됨 (스레드)")
-        except Exception as e:
-            print(f"❌ [스레드 시작] 예외 발생: {e}")
-
-        print("✅ startup 이벤트 완료됨")
+        
+        # ✅ 마이크 스트리밍은 필요할 때만 시작
+        # mic_streamer.start() 제거
+        
+        # 오디오 출력 루프만 백그라운드에서 시작
+        threading.Thread(
+            target=run_audio_output_loop_in_background,
+            daemon=True
+        ).start()
+        
+        print("✅ 서버 시작 완료")
     except Exception as e:
-        print(f"❌ [startup_event 전체] 예외 발생: {e}")
+        print(f"❌ 서버 시작 실패: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

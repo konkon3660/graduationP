@@ -33,7 +33,7 @@ def find_output_device(p: pyaudio.PyAudio) -> int:
 # 🔧 설정 값
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000
+RATE = 16000
 CHUNK = 1024
 
 # 🔌 PyAudio 및 스트림 초기화
