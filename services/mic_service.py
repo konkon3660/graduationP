@@ -2,17 +2,17 @@
 
 class MicSender:
     def __init__(self):
-        self.clients = set()  # 예: WebSocket 클라이언트들
+        self.receivers = set()
 
-    def register(self, websocket):
-        self.clients.add(websocket)
+    def register(self, websocket: WebSocket):
+        self.receivers.add(websocket)
 
-    def unregister(self, websocket):
-        self.clients.discard(websocket)
+    def unregister(self, websocket: WebSocket):
+        self.receivers.discard(websocket)
 
-    async def broadcast(self, data: bytes):
-        for ws in list(self.clients):
+    async def broadcast(self, chunk: bytes):
+        for ws in self.receivers.copy():
             try:
-                await ws.send_bytes(data)
+                await ws.send_bytes(chunk)
             except Exception:
-                self.unregister(ws)
+                self.receivers.discard(ws)
