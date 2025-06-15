@@ -1,7 +1,7 @@
 # command_service.py
 import asyncio
 import json
-import laser_service
+from services import laser_service
 import moter_service
 import sol_service
 from . import mic_service
