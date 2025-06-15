@@ -8,6 +8,7 @@ from services.microphone_sender_instance import mic_streamer
 from services.mic_sender_instance import mic_sender
 import asyncio
 from routers.ws_audio_send import audio_output_loop
+import threading
 
 app = FastAPI()
 app.state.mic_sender = mic_sender
@@ -17,11 +18,18 @@ app.include_router(audio_receive_router)
 app.include_router(audio_send_router)
 app.include_router(mjpeg_router)
 
+
+def run_audio_output_loop_in_background():
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(audio_output_loop())
+
 @app.on_event("startup")
 async def startup_event():
     with suppress_alsa_errors():  # ✅ 마이크 생성 전 suppress
         mic_streamer.start()
-    asyncio.create_task(audio_output_loop())  # 🔄 병렬 실행
+    threading.Thread(target=run_audio_output_loop_in_background, daemon=True).start()
 
 @app.on_event("shutdown")
 async def shutdown_event():
