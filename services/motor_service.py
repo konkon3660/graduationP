@@ -1,66 +1,47 @@
+# motor_service.py
 import RPi.GPIO as GPIO
-import time
 
-# 모터 A (오른쪽 모터)
-ENA = 25
-INT1 = 23
-INT2 = 24
+# 핀 번호
+ENA, INT1, INT2 = 25, 23, 24
+ENB, INT3, INT4 = 22, 17, 18
 
-# 모터 B (왼쪽 모터)
-ENB = 22
-INT3 = 17
-INT4 = 18
+# PWM 객체 초기화 전용 전역 변수
+pwmA = None
+pwmB = None
+_initialized = False
 
-# 초기 설정
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup([ENA, INT1, INT2, ENB, INT3, INT4], GPIO.OUT)
+def init_motor():
+    """모터 핀 및 PWM 설정 (최초 1회만 호출)"""
+    global pwmA, pwmB, _initialized
+    if _initialized:
+        return
 
-# PWM 설정
-pwmA = GPIO.PWM(ENA, 8000)  # 오른쪽
-pwmB = GPIO.PWM(ENB, 8000)  # 왼쪽
-pwmA.start(0)
-pwmB.start(0)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup([ENA, INT1, INT2, ENB, INT3, INT4], GPIO.OUT)
+
+    pwmA = GPIO.PWM(ENA, 8000)
+    pwmB = GPIO.PWM(ENB, 8000)
+    pwmA.start(0)
+    pwmB.start(0)
+
+    _initialized = True
+    print("✅ 모터 초기화 완료")
 
 def set_right_motor(speed: int, direction: int):
-    """
-    오른쪽 모터 제어
-    speed: 0~100
-    direction: 0 (정방향), 1 (역방향)
-    """
-    if direction == 0:
-        GPIO.output(INT1, GPIO.HIGH)
-        GPIO.output(INT2, GPIO.LOW)
-    elif direction == 1:
-        GPIO.output(INT1, GPIO.LOW)
-        GPIO.output(INT2, GPIO.HIGH)
-    else:
-        GPIO.output(INT1, GPIO.LOW)
-        GPIO.output(INT2, GPIO.LOW)
-
+    init_motor()
+    GPIO.output(INT1, GPIO.HIGH if direction == 0 else GPIO.LOW)
+    GPIO.output(INT2, GPIO.LOW if direction == 0 else GPIO.HIGH)
     pwmA.ChangeDutyCycle(speed)
 
 def set_left_motor(speed: int, direction: int):
-    """
-    왼쪽 모터 제어
-    speed: 0~100
-    direction: 0 (정방향), 1 (역방향)
-    """
-    if direction == 0:
-        GPIO.output(INT3, GPIO.HIGH)
-        GPIO.output(INT4, GPIO.LOW)
-    elif direction == 1:
-        GPIO.output(INT3, GPIO.LOW)
-        GPIO.output(INT4, GPIO.HIGH)
-    else:
-        GPIO.output(INT3, GPIO.LOW)
-        GPIO.output(INT4, GPIO.LOW)
-
+    init_motor()
+    GPIO.output(INT3, GPIO.HIGH if direction == 0 else GPIO.LOW)
+    GPIO.output(INT4, GPIO.LOW if direction == 0 else GPIO.HIGH)
     pwmB.ChangeDutyCycle(speed)
 
 def stop_motors():
-    """양쪽 모터 정지"""
-
+    init_motor()
     GPIO.output(INT1, GPIO.LOW)
     GPIO.output(INT2, GPIO.LOW)
     GPIO.output(INT3, GPIO.LOW)
@@ -69,14 +50,10 @@ def stop_motors():
     pwmB.ChangeDutyCycle(0)
 
 def cleanup():
-    """모터 종료 및 GPIO 정리"""
+    global _initialized
     stop_motors()
     pwmA.stop()
     pwmB.stop()
     GPIO.cleanup()
-
-set_left_motor(80,0)
-set_right_motor(80,0)
-time.sleep(2)
-stop_motors()
-cleanup()
+    _initialized = False
+    print("🧼 GPIO 정리 완료")
