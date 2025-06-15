@@ -27,9 +27,13 @@ def run_audio_output_loop_in_background():
 
 @app.on_event("startup")
 async def startup_event():
-    with suppress_alsa_errors():  # ✅ 마이크 생성 전 suppress
-        mic_streamer.start()
-    threading.Thread(target=run_audio_output_loop_in_background, daemon=True).start()
+    try:
+        with suppress_alsa_errors():
+            mic_streamer.start()
+        threading.Thread(target=run_audio_output_loop_in_background, daemon=True).start()
+        print("✅ startup 이벤트 완료됨")
+    except Exception as e:
+        print(f"❌ startup_event 중 예외 발생: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
