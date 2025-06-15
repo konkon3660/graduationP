@@ -1,5 +1,10 @@
 # routers/ws_audio_receive.py
+import asyncio
+import pyaudio
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.audio_receive_status import audio_receive_status
+
+router = APIRouter()
 
 @router.websocket("/ws/audio_receive")
 async def websocket_audio_receive(websocket: WebSocket):
