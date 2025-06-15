@@ -1,9 +1,9 @@
 import asyncio
 import pyaudio
-from services.audio_service import get_audio_streaming
 import contextlib
 import os
 import sys
+from services.audio_service import get_audio_streaming
 
 # 🔇 ALSA / JACK 로그 제거
 @contextlib.contextmanager
@@ -15,10 +15,9 @@ def suppress_alsa_errors():
     try:
         yield
     finally:
-        os.dup2(saved_stderr, fd)
+        os.dup2(saved_stderr, stderr_fd)
         os.close(fd)
         os.close(saved_stderr)
-
 
 class MicrophoneSender:
     def __init__(self):
@@ -28,9 +27,11 @@ class MicrophoneSender:
 
     def register(self, websocket):
         self.clients.add(websocket)
+        print(f"✅ 클라이언트 등록됨 (총 {len(self.clients)}명)")
 
     def unregister(self, websocket):
         self.clients.discard(websocket)
+        print(f"❎ 클라이언트 해제됨 (총 {len(self.clients)}명)")
 
     async def broadcast(self, data: bytes):
         if not get_audio_streaming():
@@ -48,7 +49,9 @@ class MicrophoneSender:
         for i in range(p.get_device_count()):
             info = p.get_device_info_by_index(i)
             if info["maxInputChannels"] > 0:
+                print(f"🎙️ 선택된 마이크: [{i}] {info['name']}")
                 return i
+        print("❌ 사용 가능한 마이크 장치 없음")
         return None
 
     async def _run(self):
@@ -59,8 +62,8 @@ class MicrophoneSender:
 
         with suppress_alsa_errors():
             p = pyaudio.PyAudio()
-            index = self.find_input_device(p)
-            if index is None:
+            device_index = self.find_input_device(p)
+            if device_index is None:
                 return
 
             try:
@@ -68,8 +71,9 @@ class MicrophoneSender:
                                 channels=CHANNELS,
                                 rate=RATE,
                                 input=True,
-                                input_device_index=index,
+                                input_device_index=device_index,
                                 frames_per_buffer=CHUNK)
+                print("🎤 서버 마이크 송출 시작")
 
                 while self.running:
                     data = stream.read(CHUNK, exception_on_overflow=False)
@@ -77,18 +81,22 @@ class MicrophoneSender:
                     await asyncio.sleep(0.01)
 
             except Exception as e:
-                pass  # 필요 시 로깅 가능
+                print(f"⚠️ 마이크 송출 중 오류 발생: {e}")
             finally:
                 stream.stop_stream()
                 stream.close()
                 p.terminate()
+                print("🛑 마이크 송출 종료")
 
     def start(self):
         if not self.running:
+            print("🚀 마이크 송출 태스크 시작")
             self.running = True
             self.task = asyncio.create_task(self._run())
 
     def stop(self):
-        self.running = False
-        if self.task:
-            self.task.cancel()
+        if self.running:
+            self.running = False
+            if self.task:
+                self.task.cancel()
+                print("🛑 마이크 송출 태스크 취소됨")
