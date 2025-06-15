@@ -1,13 +1,10 @@
-# command_service.py
-from fastapi import Request, WebSocket
+from fastapi import WebSocket
 import asyncio
 import json
+
 from services import laser_service, sol_service
-from audio_service import set_audio_streaming
-import services.motor_service as motor_service
-from . import mic_service
-from services import microphone_sender_instance
-from services import feed_setting  # 🔶 추가
+from services.audio_service import set_audio_streaming
+from services import motor_service, microphone_sender_instance, feed_setting
 from services.feed_service import feed_once
 
 async def handle_command(command: str, websocket: WebSocket) -> str:
