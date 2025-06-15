@@ -12,14 +12,14 @@ async def websocket_audio_receive(websocket: WebSocket):
     audio_receive_status.ws_clients.add(websocket)
     print("🎤 [AUDIO_RECEIVE] 연결됨, 기본값: 송출 OFF")
     try:
-        audio = pyaudio.PyAudio()
+        audio = pyaudio.PyAudio()   
         stream = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=1024)
         while True:
             if audio_receive_status.on:
-                data = stream.read(1024)
+                data = stream.read(512)  # 필요하다면 512로 줄여서 테스트
                 await websocket.send_bytes(data)
             else:
-                await asyncio.sleep(0.01)  # OFF 상태에서는 잠시 대기
+                await asyncio.sleep(0.05)  # 10~50ms, OFF상태만
     except WebSocketDisconnect:
         print("🔌 [AUDIO_RECEIVE] 클라이언트 연결 해제")
     finally:
