@@ -4,7 +4,7 @@ import RPi.GPIO as GPIO
 import time
 import asyncio
 from datetime import datetime, timedelta
-from services.feed_settings import feed_config
+from services.feed_setting import feed_config
 
 SERVO_PIN = 18
 PWM_FREQUENCY = 50
