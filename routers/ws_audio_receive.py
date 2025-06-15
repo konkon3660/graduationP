@@ -1,8 +1,5 @@
-# routers/ws_audio_route.py
-import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from services.audio_output_service import play_audio_chunk
-from services.audio_service import get_audio_streaming
+from services.microphone_sender_instance import mic_streamer  # ✅ 싱글톤 mic_streamer 객체 import
 
 router = APIRouter()
 
@@ -11,19 +8,16 @@ async def audio_receive_ws(websocket: WebSocket):
     await websocket.accept()
     print("🔈 클라이언트 스피커 연결됨 (/ws/audio_receive)")
 
+    mic_streamer.register(websocket)  # 클라이언트를 송신 대상에 등록
+
     try:
         while True:
-            data = await websocket.receive_bytes()
-
-            if get_audio_streaming():
-                play_audio_chunk(data)
+            # 연결 유지용: 클라이언트에서 데이터를 보내지 않아도 연결을 끊지 않기 위함
+            await websocket.receive_text()
 
     except WebSocketDisconnect:
         print("🔌 클라이언트 스피커 연결 종료")
 
-    except asyncio.CancelledError:
-        print("🛑 서버 종료로 인해 클라이언트 오디오 수신 종료됨")
-
     finally:
+        mic_streamer.unregister(websocket)
         print("❎ 클라이언트 해제됨")
-
