@@ -1,24 +1,26 @@
 # command_service.py
+from fastapi import Request
 import asyncio
 import json
-from services import laser_service
+from services import laser_service,sol_service
+from audio_service import set_audio_streaming
 import services.motor_service as motor_service
-import sol_service
 from . import mic_service
 from services import microphone_sender_instance
-from services.microphone_sender_instance import mic_streamer
-from services import feed_settings  # 🔶 추가
+from services import feed_setting  # 🔶 추가
 from services.feed_service import feed_once
 
-async def handle_command(command: str) -> str:
+async def handle_command(command: str, request: Request) -> str:
     # 먼저 JSON인지 시도
+    mic_streamer = request.app.state.mic_streamer  # ✅ 이렇게 가져옴
+    mic_sender = request.app.state.mic_sender
     try:
         data = json.loads(command)
 
         if isinstance(data, dict):
             # 급식 설정 명령인지 확인
             if "mode" in data and "interval" in data and "amount" in data:
-                feed_settings.update_settings({
+                feed_setting.update_settings({
                     "mode": data["mode"],
                     "interval": int(data["interval"]),
                     "amount": int(data["amount"])
@@ -41,7 +43,7 @@ async def handle_command(command: str) -> str:
         return "ack: fire 실행됨"
     
     elif command == "feed_now":
-        if feed_settings.feed_config["mode"] == "manual":
+        if feed_setting.feed_config["mode"] == "manual":
             feed_once()
             return "ack: 수동 급식 1회 실행됨"
         else:
@@ -72,20 +74,20 @@ async def handle_command(command: str) -> str:
         return "ack: 정지됨"
 
     elif command == "audio_send":
-        mic_streamer.start()
+        mic_sender.start()
         return "ack: 음성 전송 시작됨"
 
     elif command == "audio_send_stop":
-        mic_streamer.stop()
+        mic_sender.stop()
         return "ack: 음성 전송 중지됨"
 
     elif command == "audio_receive_on":
-        microphone_sender_instance.mic_streamer.start()
+        mic_streamer.start() 
         set_audio_streaming(True)
         return "ack: 음성 수신 ON"
 
     elif command == "audio_receive_off":
-        microphone_sender_instance.mic_streamer.stop()
+        mic_streamer.stop()
         set_audio_streaming(False)
         return "ack: 음성 수신 OFF"
 

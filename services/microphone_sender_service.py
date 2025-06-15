@@ -1,6 +1,7 @@
 # microphone_sender_service.py
 import asyncio
 import pyaudio
+from services.audio_service import get_audio_streaming  # 🔑 import
 
 class MicrophoneSender:
     def __init__(self, keyword="Brio"):
@@ -19,6 +20,8 @@ class MicrophoneSender:
 
     async def broadcast(self, data: bytes):
         disconnected = []
+        if not get_audio_streaming():  # 🔍 조건 추가
+            return
         for ws in self.connected_clients:
             try:
                 await ws.send_bytes(data)
