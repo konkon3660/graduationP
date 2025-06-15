@@ -1,198 +1,281 @@
-# routers/ws_router.py
+# ws_router.py
 import asyncio
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import logging
-from services.command_service import handle_command_async
+import websockets
+from websockets.exceptions import ConnectionClosed
+import threading
+from queue import Queue, Empty
+import time
 
-logger = logging.getLogger(__name__)
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('ws_router')
 
-router = APIRouter()
-
-# 중복 로그 방지를 위한 마지막 명령 추적
-last_command = {"type": None, "timestamp": 0}
-COMMAND_LOG_INTERVAL = 1.0  # 1초 간격으로만 같은 명령 로그 출력
-
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    logger.info("🔗 WebSocket 클라이언트 연결됨")
+class WebSocketRouter:
+    def __init__(self):
+        self.command_client = None
+        self.audio_client = None
+        self.server_ws = None
+        self.command_queue = Queue()
+        self.audio_queue = Queue()
+        self.running = False
+        
+    async def connect_to_server(self, server_uri):
+        """서버에 연결"""
+        try:
+            self.server_ws = await websockets.connect(server_uri)
+            logger.info(f"서버에 연결됨: {server_uri}")
+            return True
+        except Exception as e:
+            logger.error(f"서버 연결 실패: {e}")
+            return False
     
-    try:
-        while True:
-            # 메시지 수신
-            data = await websocket.receive_text()
-            
-            # JSON 파싱 시도
-            try:
-                message = json.loads(data)
-                command_type = message.get('type', '').lower()
-                
-                # 조이스틱 명령 처리
-                if command_type == 'joystick':
-                    direction = message.get('direction', '').lower()
-                    await _handle_joystick_command(websocket, direction)
-                
-                # 레이저 명령 처리  
-                elif command_type in ['laser_on', 'laser_off']:
-                    await _handle_laser_command(websocket, command_type)
-                
-                # 기타 명령 처리
-                elif command_type:
-                    await _handle_general_command(websocket, command_type, message)
-                
-                else:
-                    logger.warning(f"❓ 알 수 없는 명령 타입: {command_type}")
+    async def handle_command_client(self, websocket, path):
+        """명령 클라이언트 처리 - 수정된 부분"""
+        logger.info("명령 클라이언트 연결됨")
+        self.command_client = websocket
+        
+        try:
+            async for message in websocket:
+                try:
+                    data = json.loads(message)
+                    logger.info(f"클라이언트로부터 명령 수신: {data}")
                     
-            except json.JSONDecodeError:
-                # 일반 텍스트 명령 처리
-                await _handle_text_command(websocket, data.strip())
-                
-    except WebSocketDisconnect:
-        logger.info("🔌 WebSocket 클라이언트 연결 해제됨")
-    except Exception as e:
-        logger.error(f"❌ WebSocket 오류: {e}")
-
-async def _handle_joystick_command(websocket: WebSocket, direction: str):
-    """조이스틱 명령 처리 (중복 로그 방지)"""
-    import time
-    current_time = time.time()
+                    # 서버로 명령 전송
+                    if self.server_ws:
+                        await self.server_ws.send(message)
+                        logger.info(f"서버로 명령 전송: {data}")
+                        
+                        # 서버 응답 대기 및 처리
+                        try:
+                            response = await asyncio.wait_for(self.server_ws.recv(), timeout=5.0)
+                            response_data = json.loads(response)
+                            logger.info(f"서버 응답 수신: {response_data}")
+                            
+                            # 응답을 클라이언트로 전송 (필터링 없이 원본 그대로)
+                            await websocket.send(response)
+                            logger.info(f"클라이언트로 응답 전송: {response_data}")
+                            
+                        except asyncio.TimeoutError:
+                            error_msg = {"type": "error", "message": "서버 응답 시간 초과"}
+                            await websocket.send(json.dumps(error_msg))
+                            logger.warning("서버 응답 시간 초과")
+                        except Exception as e:
+                            error_msg = {"type": "error", "message": f"서버 응답 처리 오류: {str(e)}"}
+                            await websocket.send(json.dumps(error_msg))
+                            logger.error(f"서버 응답 처리 오류: {e}")
+                    else:
+                        error_msg = {"type": "error", "message": "서버에 연결되지 않음"}
+                        await websocket.send(json.dumps(error_msg))
+                        logger.warning("서버에 연결되지 않음")
+                        
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON 파싱 오류: {e}")
+                    error_msg = {"type": "error", "message": "잘못된 JSON 형식"}
+                    await websocket.send(json.dumps(error_msg))
+                except Exception as e:
+                    logger.error(f"메시지 처리 오류: {e}")
+                    
+        except ConnectionClosed:
+            logger.info("명령 클라이언트 연결 종료")
+        except Exception as e:
+            logger.error(f"명령 클라이언트 처리 오류: {e}")
+        finally:
+            self.command_client = None
     
-    # 중복 로그 방지
-    if (last_command["type"] == f"joystick_{direction}" and 
-        current_time - last_command["timestamp"] < COMMAND_LOG_INTERVAL):
-        return
+    async def handle_audio_client(self, websocket, path):
+        """오디오 클라이언트 처리 - CORS 및 인증 문제 해결"""
+        logger.info("오디오 클라이언트 연결 시도")
+        
+        # Origin 헤더 확인 및 허용
+        origin = websocket.request_headers.get('Origin')
+        logger.info(f"오디오 클라이언트 Origin: {origin}")
+        
+        # 필요시 여기서 Origin 검증 로직 추가
+        # if origin not in allowed_origins:
+        #     await websocket.close(code=1008, reason="Origin not allowed")
+        #     return
+        
+        self.audio_client = websocket
+        logger.info("오디오 클라이언트 연결됨")
+        
+        try:
+            async for message in websocket:
+                try:
+                    if isinstance(message, bytes):
+                        # 바이너리 오디오 데이터 처리
+                        logger.debug(f"오디오 데이터 수신: {len(message)} bytes")
+                        
+                        # 서버로 오디오 데이터 전송
+                        if self.server_ws:
+                            await self.server_ws.send(message)
+                            logger.debug("서버로 오디오 데이터 전송")
+                        else:
+                            logger.warning("오디오 데이터 전송 실패: 서버 연결 없음")
+                    else:
+                        # 텍스트 메시지 처리
+                        try:
+                            data = json.loads(message)
+                            logger.info(f"오디오 클라이언트로부터 메시지: {data}")
+                            
+                            if self.server_ws:
+                                await self.server_ws.send(message)
+                                logger.info("서버로 오디오 메시지 전송")
+                        except json.JSONDecodeError:
+                            logger.warning(f"오디오 클라이언트로부터 잘못된 JSON: {message}")
+                            
+                except Exception as e:
+                    logger.error(f"오디오 메시지 처리 오류: {e}")
+                    
+        except ConnectionClosed:
+            logger.info("오디오 클라이언트 연결 종료")
+        except Exception as e:
+            logger.error(f"오디오 클라이언트 처리 오류: {e}")
+        finally:
+            self.audio_client = None
     
-    last_command["type"] = f"joystick_{direction}"
-    last_command["timestamp"] = current_time
-    
-    try:
-        # 명령 처리
-        result = await handle_command_async(f"joystick_{direction}")
-        
-        # 통일된 응답 형식
-        response_message = f"🕹️ 조이스틱 {_get_direction_korean(direction)} 이동 완료"
-        logger.info(response_message)
-        
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": f"joystick_{direction}",
-            "status": "success",
-            "message": response_message
-        }))
-        
-    except Exception as e:
-        error_message = f"❌ 조이스틱 {direction} 명령 처리 실패: {e}"
-        logger.error(error_message)
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": f"joystick_{direction}",
-            "status": "error", 
-            "message": error_message
-        }))
-
-async def _handle_laser_command(websocket: WebSocket, command_type: str):
-    """레이저 명령 처리"""
-    try:
-        result = await handle_command_async(command_type)
-        
-        # 통일된 응답 형식
-        if command_type == "laser_on":
-            response_message = "🔴 레이저가 켜졌습니다"
-        else:
-            response_message = "⚫ 레이저가 꺼졌습니다"
+    async def handle_server_messages(self):
+        """서버로부터 오는 메시지 처리 - 오디오 응답 라우팅 개선"""
+        if not self.server_ws:
+            return
             
-        logger.info(response_message)
-        
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": command_type,
-            "status": "success",
-            "message": response_message
-        }))
-        
-    except Exception as e:
-        error_message = f"❌ {command_type} 명령 처리 실패: {e}"
-        logger.error(error_message)
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": command_type,
-            "status": "error",
-            "message": error_message
-        }))
-
-async def _handle_general_command(websocket: WebSocket, command_type: str, message: dict):
-    """일반 명령 처리"""
-    try:
-        result = await handle_command_async(command_type)
-        
-        # 명령별 응답 메시지 생성
-        response_message = _get_command_response_message(command_type)
-        logger.info(response_message)
-        
-        await websocket.send_text(json.dumps({
-            "type": "command_response", 
-            "command": command_type,
-            "status": "success",
-            "message": response_message
-        }))
-        
-    except Exception as e:
-        error_message = f"❌ {command_type} 명령 처리 실패: {e}"
-        logger.error(error_message)
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": command_type,
-            "status": "error",
-            "message": error_message
-        }))
-
-async def _handle_text_command(websocket: WebSocket, command: str):
-    """텍스트 명령 처리"""
-    try:
-        result = await handle_command_async(command)
-        
-        response_message = _get_command_response_message(command)
-        logger.info(response_message)
-        
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": command,
-            "status": "success", 
-            "message": response_message
-        }))
-        
-    except Exception as e:
-        error_message = f"❌ {command} 명령 처리 실패: {e}"
-        logger.error(error_message)
-        await websocket.send_text(json.dumps({
-            "type": "command_response",
-            "command": command,
-            "status": "error",
-            "message": error_message
-        }))
-
-def _get_direction_korean(direction: str) -> str:
-    """방향을 한국어로 변환"""
-    direction_map = {
-        "forward": "전진",
-        "backward": "후진", 
-        "left": "좌회전",
-        "right": "우회전",
-        "up": "상승",
-        "down": "하강"
-    }
-    return direction_map.get(direction, direction)
-
-def _get_command_response_message(command: str) -> str:
-    """명령별 통일된 응답 메시지 생성"""
-    command_messages = {
-        "fire": "🔥 발화 명령이 실행되었습니다",
-        "sol": "🔥 발화 명령이 실행되었습니다", 
-        "laser_on": "🔴 레이저가 켜졌습니다",
-        "laser_off": "⚫ 레이저가 꺼졌습니다",
-        "stop": "🛑 정지 명령이 실행되었습니다",
-        "reset": "🔄 리셋 명령이 실행되었습니다"
-    }
+        try:
+            async for message in self.server_ws:
+                try:
+                    if isinstance(message, bytes):
+                        # 바이너리 오디오 응답을 오디오 클라이언트로 전송
+                        if self.audio_client:
+                            await self.audio_client.send(message)
+                            logger.debug(f"오디오 클라이언트로 바이너리 데이터 전송: {len(message)} bytes")
+                        else:
+                            logger.warning("오디오 응답을 받을 클라이언트가 없음")
+                    else:
+                        # 텍스트 메시지 처리
+                        try:
+                            data = json.loads(message)
+                            message_type = data.get('type', '')
+                            
+                            logger.info(f"서버로부터 메시지 수신: {data}")
+                            
+                            # 오디오 관련 메시지는 오디오 클라이언트로
+                            if message_type in ['audio_response', 'speech_start', 'speech_end', 'audio_status']:
+                                if self.audio_client:
+                                    await self.audio_client.send(message)
+                                    logger.info(f"오디오 클라이언트로 메시지 전송: {message_type}")
+                                else:
+                                    logger.warning(f"오디오 메시지를 받을 클라이언트가 없음: {message_type}")
+                            
+                            # 명령 응답은 명령 클라이언트로 (이미 handle_command_client에서 처리됨)
+                            elif message_type == 'command_response':
+                                # 이미 handle_command_client에서 직접 처리하므로 여기서는 로깅만
+                                logger.debug(f"명령 응답 처리됨: {data.get('command', 'unknown')}")
+                            
+                            # 기타 메시지는 적절한 클라이언트로 라우팅
+                            else:
+                                # 기본적으로 명령 클라이언트로 전송
+                                if self.command_client:
+                                    await self.command_client.send(message)
+                                    logger.info(f"명령 클라이언트로 기타 메시지 전송: {message_type}")
+                                    
+                        except json.JSONDecodeError:
+                            logger.warning(f"서버로부터 잘못된 JSON: {message}")
+                            
+                except Exception as e:
+                    logger.error(f"서버 메시지 처리 오류: {e}")
+                    
+        except ConnectionClosed:
+            logger.info("서버 연결 종료")
+        except Exception as e:
+            logger.error(f"서버 메시지 처리 오류: {e}")
     
-    return command_messages.get(command.lower(), f"✅ {command} 명령이 처리되었습니다")
+    async def start_command_server(self, host='localhost', port=8765):
+        """명령 서버 시작"""
+        logger.info(f"명령 서버 시작: {host}:{port}")
+        return await websockets.serve(
+            self.handle_command_client, 
+            host, 
+            port,
+            # CORS 설정 추가
+            extra_headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+        )
+    
+    async def start_audio_server(self, host='localhost', port=8766):
+        """오디오 서버 시작 - CORS 문제 해결"""
+        logger.info(f"오디오 서버 시작: {host}:{port}")
+        
+        async def audio_handler(websocket, path):
+            # CORS 헤더 설정
+            websocket.response_headers['Access-Control-Allow-Origin'] = '*'
+            websocket.response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            websocket.response_headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            
+            await self.handle_audio_client(websocket, path)
+        
+        return await websockets.serve(
+            audio_handler,
+            host, 
+            port,
+            # 추가 CORS 설정
+            extra_headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS", 
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+        )
+    
+    async def run(self, server_uri, command_port=8765, audio_port=8766):
+        """라우터 실행"""
+        self.running = True
+        
+        # 서버 연결
+        if not await self.connect_to_server(server_uri):
+            logger.error("서버 연결 실패")
+            return
+        
+        # 서버들 시작
+        command_server = await self.start_command_server(port=command_port)
+        audio_server = await self.start_audio_server(port=audio_port)
+        
+        logger.info("WebSocket 라우터가 시작되었습니다")
+        logger.info(f"명령 서버: ws://localhost:{command_port}")
+        logger.info(f"오디오 서버: ws://localhost:{audio_port}")
+        
+        try:
+            # 서버 메시지 처리 태스크 시작
+            server_task = asyncio.create_task(self.handle_server_messages())
+            
+            # 서버들이 계속 실행되도록 대기
+            await asyncio.gather(
+                server_task,
+                command_server.wait_closed(),
+                audio_server.wait_closed()
+            )
+        except KeyboardInterrupt:
+            logger.info("사용자에 의해 중단됨")
+        except Exception as e:
+            logger.error(f"라우터 실행 오류: {e}")
+        finally:
+            self.running = False
+            if self.server_ws:
+                await self.server_ws.close()
+            command_server.close()
+            audio_server.close()
+            logger.info("WebSocket 라우터가 종료되었습니다")
+
+# 메인 실행
+async def main():
+    router = WebSocketRouter()
+    server_uri = "ws://localhost:8080/ws"  # 실제 서버 주소로 변경
+    
+    await router.run(server_uri)
+
+if __name__ == "__main__":
+    asyncio.run(main())
