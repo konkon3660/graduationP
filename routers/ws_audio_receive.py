@@ -158,7 +158,7 @@ class OptimizedAudioPlayer:
 # 전역 오디오 플레이어 인스턴스
 audio_player = OptimizedAudioPlayer()
 
-@router.websocket("/ws_audio_receive")
+@router.websocket("/ws/audio_receive")
 async def websocket_audio_receive(websocket: WebSocket):
     await websocket.accept()
     logger.info("🎧 오디오 수신 WebSocket 연결됨")
