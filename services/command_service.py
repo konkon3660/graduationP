@@ -1,91 +1,45 @@
-from fastapi import WebSocket
-import asyncio
+# routers/ws_router.py - 텍스트 + 음성 통합 제어
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 
-from services import laser_service, sol_service
-from services.audio_service import set_audio_streaming
-from services import motor_service, microphone_sender_instance, feed_setting
-from services.feed_service import feed_once
+router = APIRouter()
 
-async def handle_command(command: str, websocket: WebSocket) -> str:
-    mic_sender = websocket.app.state.mic_sender
-    mic_streamer = websocket.app.state.mic_streamer
+@router.websocket("/ws")
+async def control_ws(websocket: WebSocket):
+    await websocket.accept()
+    print("🎮 통합 제어 WebSocket 연결됨")
 
     try:
-        data = json.loads(command)
-
-        if isinstance(data, dict):
-            # 급식 설정 명령인지 확인
-            if "mode" in data and "interval" in data and "amount" in data:
-                feed_setting.update_settings({
-                    "mode": data["mode"],
-                    "interval": int(data["interval"]),
-                    "amount": int(data["amount"])
-                })
-                return f"ack: 급식 설정 적용됨 (mode={data['mode']}, interval={data['interval']}, amount={data['amount']})"
-    except json.JSONDecodeError:
-        pass  # JSON 형식 아님 → 문자열로 처리
-
-    # 문자열 명령어 처리
-    if command == "laser_on":
-        laser_service.laser_on()
-        return "ack: laser_on 실행됨"
-
-    elif command == "laser_off":
-        laser_service.laser_off()
-        return "ack: laser_off 실행됨"
-
-    elif command == "fire":
-        sol_service.fire()
-        return "ack: fire 실행됨"
-    
-    elif command == "feed_now":
-        if feed_setting.feed_config["mode"] == "manual":
-            feed_once()
-            return "ack: 수동 급식 1회 실행됨"
-        else:
-            return "nak: 현재 자동 모드이므로 수동 급식 불가능"
-
-    elif command == "forward":
-        motor_service.set_right_motor(80, 0)
-        motor_service.set_left_motor(80, 0)
-        return "ack: forward 이동"
-
-    elif command == "backward":
-        motor_service.set_right_motor(80, 1)
-        motor_service.set_left_motor(80, 1)
-        return "ack: backward 이동"
-
-    elif command == "left":
-        motor_service.set_right_motor(80, 0)
-        motor_service.set_left_motor(80, 1)
-        return "ack: left 회전"
-
-    elif command == "right":
-        motor_service.set_right_motor(80, 1)
-        motor_service.set_left_motor(80, 0)
-        return "ack: right 회전"
-
-    elif command == "stop":
-        motor_service.stop_motors()
-        return "ack: 정지됨"
-
-    elif command == "audio_send":
-        mic_sender.start()
-        return "ack: 음성 전송 시작됨"
-
-    elif command == "audio_send_stop":
-        mic_sender.stop()
-        return "ack: 음성 전송 중지됨"
-
-    elif command == "audio_receive_on":
-        mic_streamer.start() 
-        set_audio_streaming(True)
-        return "ack: 음성 수신 ON"
-
-    elif command == "audio_receive_off":
-        mic_streamer.stop()
-        set_audio_streaming(False)
-        return "ack: 음성 수신 OFF"
-
-    return f"ack: 알 수 없는 명령: {command}"
+        while True:
+            message = await websocket.receive_text()
+            
+            try:
+                # JSON 메시지 파싱 시도
+                data = json.loads(message)
+                msg_type = data.get("type", "command")
+                content = data.get("content", message)
+                
+                if msg_type == "text":
+                    print(f"💬 텍스트 메시지: {content}")
+                    response = f"서버가 받은 메시지: {content}"
+                    
+                elif msg_type == "command":
+                    print(f"🎮 제어 명령: {content}")
+                    from services.command_service import handle_command
+                    response = await handle_command(content, websocket)
+                    
+                else:
+                    response = f"알 수 없는 메시지 타입: {msg_type}"
+                    
+            except json.JSONDecodeError:
+                # 일반 텍스트로 처리
+                print(f"📝 일반 텍스트: {message}")
+                from services.command_service import handle_command
+                response = await handle_command(message, websocket)
+            
+            await websocket.send_text(response)
+            
+    except WebSocketDisconnect:
+        print("🔌 통합 제어 WebSocket 연결 종료")
+    except Exception as e:
+        print(f"❌ WebSocket 오류: {e}")
