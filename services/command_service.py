@@ -1,8 +1,8 @@
 # command_service.py
-from fastapi import Request
+from fastapi import Request, WebSocket
 import asyncio
 import json
-from services import laser_service,sol_service
+from services import laser_service, sol_service
 from audio_service import set_audio_streaming
 import services.motor_service as motor_service
 from . import mic_service
@@ -10,10 +10,10 @@ from services import microphone_sender_instance
 from services import feed_setting  # 🔶 추가
 from services.feed_service import feed_once
 
-async def handle_command(command: str, request: Request) -> str:
-    # 먼저 JSON인지 시도
-    mic_streamer = request.app.state.mic_streamer  # ✅ 이렇게 가져옴
-    mic_sender = request.app.state.mic_sender
+async def handle_command(command: str, websocket: WebSocket) -> str:
+    mic_sender = websocket.app.state.mic_sender
+    mic_streamer = websocket.app.state.mic_streamer
+
     try:
         data = json.loads(command)
 

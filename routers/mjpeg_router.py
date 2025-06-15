@@ -1,5 +1,5 @@
 from fastapi.responses import StreamingResponse
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRoframes_per_bufferuter, BackgroundTasks
 from camera.mjpeg_streamer import generate_mjpeg, stop_capture
 
 router = APIRouter()
