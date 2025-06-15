@@ -1,14 +1,15 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+# routers/ws_audio_route.py
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
+from services.microphone_sender_instance import mic_streamer  # 👈 전역 객체 import
 
 router = APIRouter()
 
 @router.websocket("/ws/audio_receive")
-async def audio_receive_ws(websocket: WebSocket, request: Request):  # ✅ request 명시
+async def audio_receive_ws(websocket: WebSocket):
     await websocket.accept()
     print("🔈 클라이언트 스피커 연결됨 (/ws/audio_receive)")
-
-    mic_streamer = request.app.state.mic_streamer  # 🎯 앱 상태에서 접근
 
     mic_streamer.register(websocket)
 

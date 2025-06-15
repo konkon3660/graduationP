@@ -2,7 +2,7 @@
 import asyncio
 import json
 from services import laser_service
-import moter_service
+import services.motor_service as motor_service
 import sol_service
 from . import mic_service
 from services import microphone_sender_instance
@@ -48,27 +48,27 @@ async def handle_command(command: str) -> str:
             return "nak: 현재 자동 모드이므로 수동 급식 불가능"
 
     elif command == "forward":
-        moter_service.set_right_motor(80, 0)
-        moter_service.set_left_motor(80, 0)
+        motor_service.set_right_motor(80, 0)
+        motor_service.set_left_motor(80, 0)
         return "ack: forward 이동"
 
     elif command == "backward":
-        moter_service.set_right_motor(80, 1)
-        moter_service.set_left_motor(80, 1)
+        motor_service.set_right_motor(80, 1)
+        motor_service.set_left_motor(80, 1)
         return "ack: backward 이동"
 
     elif command == "left":
-        moter_service.set_right_motor(80, 0)
-        moter_service.set_left_motor(80, 1)
+        motor_service.set_right_motor(80, 0)
+        motor_service.set_left_motor(80, 1)
         return "ack: left 회전"
 
     elif command == "right":
-        moter_service.set_right_motor(80, 1)
-        moter_service.set_left_motor(80, 0)
+        motor_service.set_right_motor(80, 1)
+        motor_service.set_left_motor(80, 0)
         return "ack: right 회전"
 
     elif command == "stop":
-        moter_service.stop_motors()
+        motor_service.stop_motors()
         return "ack: 정지됨"
 
     elif command == "audio_send":
