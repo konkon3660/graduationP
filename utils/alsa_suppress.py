@@ -1,18 +1,17 @@
-import ctypes
+# utils/suppress_alsa.py
+import os
+import sys
 import contextlib
 
 @contextlib.contextmanager
 def suppress_alsa_errors():
-    """ALSA C 레벨 에러 출력을 억제하는 핸들러."""
+    fd = os.open(os.devnull, os.O_WRONLY)
+    stderr_fd = sys.stderr.fileno()
+    saved_stderr = os.dup(stderr_fd)
+    os.dup2(fd, stderr_fd)
     try:
-        asound = ctypes.cdll.LoadLibrary("libasound.so")
-        ERROR_HANDLER_FUNC = ctypes.CFUNCTYPE(
-            None, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p
-        )
-        def py_error_handler(filename, line, function, err, fmt):
-            pass  # 무시
-        c_handler = ERROR_HANDLER_FUNC(py_error_handler)
-        asound.snd_lib_error_set_handler(c_handler)
         yield
     finally:
-        asound.snd_lib_error_set_handler(None)
+        os.dup2(saved_stderr, stderr_fd)
+        os.close(fd)
+        os.close(saved_stderr)
