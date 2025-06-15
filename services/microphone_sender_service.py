@@ -78,7 +78,7 @@ class MicrophoneSender:
 
             FORMAT = pyaudio.paInt16
             CHANNELS = 1
-            RATE = 48000
+            RATE = 16000
             CHUNK = 1024
 
             p = pyaudio.PyAudio()
