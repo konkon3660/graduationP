@@ -1,21 +1,18 @@
-import time
-from audio_output_service import init_audio_stream, play_audio_chunk
+import pyaudio
 
-PCM_FILE = "received_audio_20250614_193443.pcm"  # 실제 파일명으로 수정
+p = pyaudio.PyAudio()
+print("🎙️ 사용 가능한 입력 장치:")
+for i in range(p.get_device_count()):
+    info = p.get_device_info_by_index(i)
+    if info["maxInputChannels"] > 0:
+        print(f"  [{i}] {info['name']}")
 
-def play_pcm_file():
-    init_audio_stream()
-
-    try:
-        with open(PCM_FILE, "rb") as f:
-            while True:
-                chunk = f.read(1024)
-                if not chunk:
-                    break
-                play_audio_chunk(chunk)
-                time.sleep(1024 / (16000 * 2))  # 1024 byte / (샘플레이트 * 바이트수)
-    except Exception as e:
-        print(f"❌ PCM 파일 재생 오류: {e}")
-
-if __name__ == "__main__":
-    play_pcm_file()
+# 강제로 열기 시도 (올바른 장치 번호로!)
+index = 1  # 예시
+stream = p.open(format=pyaudio.paInt16,
+                channels=1,
+                rate=16000,
+                input=True,
+                input_device_index=index,
+                frames_per_buffer=2048)
+print("✅ 마이크 열기 성공")
