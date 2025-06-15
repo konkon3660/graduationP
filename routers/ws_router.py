@@ -17,11 +17,11 @@ async def websocket_endpoint(websocket: WebSocket):
             # 클라이언트에서 받은 명령 (plain text)
             command = await websocket.receive_text()
             # 명령 처리 (실제 동작)
-            await handle_command_async(command)
             if command == "audio_receive_on":
                 audio_receive_status.on = True
             elif command == "audio_receive_off":
                 audio_receive_status.on = False
+            await handle_command_async(command)
             # 그대로 응답 (클라에서 그대로 화면에 뿌림)
             await websocket.send_text(command)
     except WebSocketDisconnect:
