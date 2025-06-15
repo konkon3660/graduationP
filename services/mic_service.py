@@ -1,4 +1,5 @@
 # services/mic_service.py
+from fastapi import WebSocket
 
 class MicSender:
     def __init__(self):
