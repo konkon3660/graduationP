@@ -177,20 +177,20 @@ async def audio_send_ws(websocket: WebSocket):
         with open(filename, "wb") as f:
             while True:
                 chunk = await websocket.receive_bytes()
-                print(f"[AUDIO_SEND] 데이터 수신: {len(chunk)} bytes")  # ⭐️ 핵심 로그
-                print(f"[AUDIO_SEND] 큐 사이즈 (put 직전): {audio_queue.qsize()}")
+                # print(f"[AUDIO_SEND] 데이터 수신: {len(chunk)} bytes")  # ⭐️ 핵심 로그
+                # print(f"[AUDIO_SEND] 큐 사이즈 (put 직전): {audio_queue.qsize()}")
                 f.write(chunk)
 
                 # 큐 크기 제한(10개 초과시 삭제)
                 if audio_queue.qsize() > 10:
                     try:
                         audio_queue.get_nowait()
-                        print(f"[AUDIO_SEND] 큐 초과, 가장 오래된 청크 삭제")
+                        # print(f"[AUDIO_SEND] 큐 초과, 가장 오래된 청크 삭제")
                     except Empty:
                         pass
 
                 audio_queue.put(chunk)
-                print(f"[AUDIO_SEND] 큐 사이즈 (put 후): {audio_queue.qsize()}")
+                # print(f"[AUDIO_SEND] 큐 사이즈 (put 후): {audio_queue.qsize()}")
 
     except WebSocketDisconnect:
         print("🔌 [AUDIO_SEND] 클라이언트 연결 종료")
