@@ -2,6 +2,7 @@
 import logging
 import asyncio
 from typing import Dict, List, Optional
+import concurrent.futures
 
 # 각 하드웨어 서비스 import
 from services.laser_service import laser_on, laser_off
@@ -77,6 +78,30 @@ class CommandHandler:
             logger.error(f"❌ 레이저 OFF 실패: {e}")
             return False
 
+    def handle_laser_x(self, x: int):
+        """X축만 제어"""
+        try:
+            return set_servo_angle(x, "x")
+        except Exception as e:
+            logger.error(f"❌ 레이저 X축 제어 실패: {e}")
+            return False
+
+    def handle_laser_y(self, y: int):
+        """Y축만 제어"""
+        try:
+            return set_servo_angle(y, "y")
+        except Exception as e:
+            logger.error(f"❌ 레이저 Y축 제어 실패: {e}")
+            return False
+
+    def handle_laser_xy(self, x: int, y: int):
+        """레이저 XY 좌표 제어 (서보 각도로 변환)"""
+        try:
+            return handle_laser_xy(x, y)
+        except Exception as e:
+            logger.error(f"❌ 레이저 XY 제어 실패: {e}")
+            return False
+
     # === 모터 제어 ===
     def handle_motor_command(self, direction: str, speed: int = 70):
         """모터 제어 (방향별)"""
@@ -123,15 +148,6 @@ class CommandHandler:
             logger.error(f"❌ 서보 제어 실패: {e}")
             return False
 
-    def handle_laser_xy(self, x: int, y: int):
-        """레이저 XY 좌표 제어 (서보 각도로 변환)"""
-        try:
-            # 새로운 handle_laser_xy 함수 사용
-            return handle_laser_xy(x, y)
-        except Exception as e:
-            logger.error(f"❌ 레이저 XY 제어 실패: {e}")
-            return False
-
     # === 솔레노이드 제어 ===
     def handle_fire(self):
         """발사 장치 동작"""
@@ -156,10 +172,11 @@ class CommandHandler:
 
 # 전역 인스턴스
 command_handler = CommandHandler()
+_executor = concurrent.futures.ThreadPoolExecutor()
 
 async def handle_command_async(command: str) -> bool:
     """
-    명령 문자열을 파싱하여 적절한 하드웨어 함수 호출
+    명령 문자열을 파싱하여 적절한 하드웨어 함수 호출 (비동기)
     
     Args:
         command: 명령 문자열
@@ -172,22 +189,38 @@ async def handle_command_async(command: str) -> bool:
         
         # === 레이저 명령 ===
         if cmd == "laser_on":
-            return command_handler.handle_laser_on()
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_on)
         elif cmd == "laser_off":
-            return command_handler.handle_laser_off()
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_off)
+        
+        # === laser_x, laser_y 개별 명령 ===
+        elif cmd.startswith("laser_x:"):
+            try:
+                x = int(cmd.split(":")[1])
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_x, x)
+            except (IndexError, ValueError) as e:
+                logger.error(f"레이저 X 파싱 오류: {e}")
+                return False
+        elif cmd.startswith("laser_y:"):
+            try:
+                y = int(cmd.split(":")[1])
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_y, y)
+            except (IndexError, ValueError) as e:
+                logger.error(f"레이저 Y 파싱 오류: {e}")
+                return False
         
         # === 모터 명령 ===
         elif cmd == "stop":
-            return command_handler.handle_motor_command("stop")
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, "stop")
         elif cmd in ["forward", "backward", "left", "right"]:
-            return command_handler.handle_motor_command(cmd)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, cmd)
         elif ":" in cmd and cmd.split(":")[0] in ["forward", "backward", "left", "right"]:
             # 속도 지정 명령: forward:50
             parts = cmd.split(":")
             direction = parts[0]
             try:
                 speed = int(parts[1])
-                return command_handler.handle_motor_command(direction, speed)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, direction, speed)
             except ValueError:
                 logger.error(f"잘못된 속도 값: {parts[1]}")
                 return False
@@ -198,7 +231,7 @@ async def handle_command_async(command: str) -> bool:
             try:
                 angle_str = cmd.split(":")[1]
                 angle = int(angle_str)
-                return command_handler.handle_servo_angle(angle)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
             except (IndexError, ValueError) as e:
                 logger.error(f"서보 각도 파싱 오류: {e}")
                 return False
@@ -211,22 +244,22 @@ async def handle_command_async(command: str) -> bool:
                 x_str, y_str = value.split(",")
                 x = int(x_str)
                 y = int(y_str)
-                return command_handler.handle_laser_xy(x, y)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_xy, x, y)
             except (IndexError, ValueError) as e:
                 logger.error(f"레이저 XY 파싱 오류: {e}")
                 return False
         
         # === 솔레노이드 명령 ===
         elif cmd == "fire":
-            return command_handler.handle_fire()
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_fire)
         
         # === 급식 명령 ===
         elif cmd == "feed_now":
-            return command_handler.handle_feed_now()
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
         
         # === 시스템 명령 ===
         elif cmd == "reset":
-            command_handler.reset()
+            await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
             return True
         
         # === 오디오 명령 (로그만) ===
@@ -259,7 +292,7 @@ def get_available_commands() -> List[str]:
     return [
         # 레이저
         "laser_on", "laser_off", 
-        "laser_xy:X,Y",  # 예: laser_xy:90,120
+        "laser_x:X", "laser_y:Y",  # 예: laser_x:90
         
         # 모터
         "forward", "backward", "left", "right", "stop",
