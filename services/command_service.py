@@ -9,7 +9,7 @@ from services.motor_service import (
     set_right_motor, set_left_motor, stop_motors, 
     cleanup as motor_cleanup, init_motor
 )
-from services.servo import set_servo_angle, cleanup as servo_cleanup
+from services.xy_servo import set_servo_angle, cleanup as servo_cleanup
 from services.sol_service import fire as solenoid_fire
 from services.feed_service import feed_once
 

@@ -47,7 +47,7 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ 하드웨어 초기화 실패: {e}")
     
-    # 급식 자동화 시작
-    try:
-        import asyncio
-        from services
+    # # 급식 자동화 시작
+    # try:
+    #     import asyncio
+    #     from services
