@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # 릴레이 핀 번호 (BCM 기준)
-RELAY_PIN = 5
+RELAY_PIN = 5  # 릴레이 (공 발사용, PIN 29)
 FIRE_DURATION = 0.3  # 발사 지속 시간(초)
 
 def init_solenoid():

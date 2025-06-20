@@ -5,9 +5,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# 핀 번호 정의
-ENA, INT1, INT2 = 25, 23, 24  # 우측 모터
-ENB, INT3, INT4 = 22, 17, 18  # 좌측 모터
+# 핀 번호 정의 (하드웨어 구성표에 맞게 수정)
+ENA, INT1, INT2 = 12, 23, 24  # 우측 모터 (ENA=PIN32, IN1=PIN16, IN2=PIN18)
+ENB, INT3, INT4 = 26, 27, 22  # 좌측 모터 (ENB=PIN37, IN3=PIN13, IN4=PIN15)
 
 # PWM 객체 및 초기화 상태
 pwmA = None  # 우측 모터 PWM

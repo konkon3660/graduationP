@@ -9,7 +9,7 @@ from services.motor_service import (
     set_right_motor, set_left_motor, stop_motors, 
     cleanup as motor_cleanup, init_motor
 )
-from services.xy_servo import set_servo_angle, cleanup as servo_cleanup
+from services.xy_servo import set_servo_angle, set_xy_servo_angles, handle_laser_xy, cleanup as servo_cleanup
 from services.sol_service import fire as solenoid_fire
 from services.feed_service import feed_once
 
@@ -126,10 +126,8 @@ class CommandHandler:
     def handle_laser_xy(self, x: int, y: int):
         """레이저 XY 좌표 제어 (서보 각도로 변환)"""
         try:
-            # 좌표를 서보 각도로 변환 (예시 로직)
-            # x: 0~180 범위로 정규화
-            angle = max(0, min(180, x))
-            return self.handle_servo_angle(angle)
+            # 새로운 handle_laser_xy 함수 사용
+            return handle_laser_xy(x, y)
         except Exception as e:
             logger.error(f"❌ 레이저 XY 제어 실패: {e}")
             return False

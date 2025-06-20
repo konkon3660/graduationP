@@ -1,6 +1,6 @@
 import RPi.GPIO as GPIO
 
-LASER_PIN = 17
+LASER_PIN = 17  # 레이저 포인터 (PIN 11)
 
 def laser_on():
     GPIO.setmode(GPIO.BCM)

@@ -1,4 +1,4 @@
-# services/servo.py - 서보모터 제어 서비스
+# services/xy_servo.py - X축, Y축 서보모터 제어 서비스
 import RPi.GPIO as GPIO
 import time
 import logging
@@ -6,42 +6,57 @@ import logging
 logger = logging.getLogger(__name__)
 
 # 서보모터 제어 핀 번호 (BCM 기준)
-SERVO_PIN = 21
+X_SERVO_PIN = 19  # X축 서보모터 (좌우)
+Y_SERVO_PIN = 13  # Y축 서보모터 (상하)
 PWM_FREQUENCY = 50
 
 # 전역 변수
-pwm = None
+x_pwm = None
+y_pwm = None
 _initialized = False
 
-def init_servo():
-    """서보 모터 초기화"""
-    global pwm, _initialized
+# 현재 각도 추적
+current_x_angle = 90
+current_y_angle = 90
+
+def init_xy_servo():
+    """X축, Y축 서보 모터 초기화"""
+    global x_pwm, y_pwm, _initialized
     
     if _initialized:
         return True
         
     try:
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(SERVO_PIN, GPIO.OUT)
+        GPIO.setup(X_SERVO_PIN, GPIO.OUT)
+        GPIO.setup(Y_SERVO_PIN, GPIO.OUT)
         
-        pwm = GPIO.PWM(SERVO_PIN, PWM_FREQUENCY)
-        pwm.start(0)
+        # PWM 객체 생성
+        x_pwm = GPIO.PWM(X_SERVO_PIN, PWM_FREQUENCY)
+        y_pwm = GPIO.PWM(Y_SERVO_PIN, PWM_FREQUENCY)
+        
+        # PWM 시작
+        x_pwm.start(0)
+        y_pwm.start(0)
         
         _initialized = True
-        logger.info("✅ 서보모터 초기화 완료")
+        logger.info("✅ X축, Y축 서보모터 초기화 완료")
         return True
     except Exception as e:
         logger.error(f"❌ 서보모터 초기화 실패: {e}")
         return False
 
-def set_servo_angle(angle: int):
+def set_servo_angle(angle: int, axis: str = "x"):
     """
     서보 모터 각도 설정
     
     Args:
         angle: 0~180도 범위의 각도
+        axis: "x" 또는 "y" (기본값: "x")
     """
-    if not init_servo():
+    global current_x_angle, current_y_angle
+    
+    if not init_xy_servo():
         logger.error("서보모터 초기화 실패")
         return False
         
@@ -53,33 +68,124 @@ def set_servo_angle(angle: int):
         # 각도를 PWM 듀티사이클로 변환
         duty = 2 + (angle / 18)  # 0도=2.5%, 180도=12.5%
         
-        GPIO.output(SERVO_PIN, True)
-        pwm.ChangeDutyCycle(duty)
-        time.sleep(0.5)  # 움직일 시간 대기
-        GPIO.output(SERVO_PIN, False)
-        pwm.ChangeDutyCycle(0)  # 떨림 방지
+        if axis.lower() == "x":
+            if x_pwm is None:
+                logger.error("X축 PWM 객체가 초기화되지 않음")
+                return False
+            GPIO.output(X_SERVO_PIN, True)
+            x_pwm.ChangeDutyCycle(duty)
+            time.sleep(0.3)  # 움직일 시간 대기
+            GPIO.output(X_SERVO_PIN, False)
+            x_pwm.ChangeDutyCycle(0)  # 떨림 방지
+            current_x_angle = angle
+            logger.info(f"🎯 X축 서보 각도 설정: {angle}도")
+        elif axis.lower() == "y":
+            if y_pwm is None:
+                logger.error("Y축 PWM 객체가 초기화되지 않음")
+                return False
+            GPIO.output(Y_SERVO_PIN, True)
+            y_pwm.ChangeDutyCycle(duty)
+            time.sleep(0.3)  # 움직일 시간 대기
+            GPIO.output(Y_SERVO_PIN, False)
+            y_pwm.ChangeDutyCycle(0)  # 떨림 방지
+            current_y_angle = angle
+            logger.info(f"🎯 Y축 서보 각도 설정: {angle}도")
+        else:
+            logger.error(f"잘못된 축 지정: {axis}")
+            return False
         
-        logger.info(f"🎯 서보 각도 설정: {angle}도")
         return True
         
     except Exception as e:
         logger.error(f"❌ 서보 각도 설정 실패: {e}")
         return False
 
+def set_xy_servo_angles(x_angle: int, y_angle: int):
+    """
+    X축, Y축 서보모터 동시 제어
+    
+    Args:
+        x_angle: X축 각도 (0~180)
+        y_angle: Y축 각도 (0~180)
+    """
+    if not init_xy_servo():
+        return False
+    
+    try:
+        # 각도 범위 검증
+        if not (0 <= x_angle <= 180) or not (0 <= y_angle <= 180):
+            logger.error(f"각도 범위 초과: X={x_angle}, Y={y_angle} (0~180도만 허용)")
+            return False
+        
+        # X축과 Y축 동시 제어
+        success_x = set_servo_angle(x_angle, "x")
+        success_y = set_servo_angle(y_angle, "y")
+        
+        if success_x and success_y:
+            logger.info(f"🎯 XY 서보 각도 설정 완료: X={x_angle}도, Y={y_angle}도")
+            return True
+        else:
+            logger.error(f"❌ XY 서보 제어 실패: X={success_x}, Y={success_y}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ XY 서보 제어 중 예외 발생: {e}")
+        return False
+
+def handle_laser_xy(x: int, y: int):
+    """
+    레이저 XY 좌표를 서보 각도로 변환하여 제어
+    
+    Args:
+        x: X 좌표 (0~180 범위)
+        y: Y 좌표 (0~180 범위)
+    """
+    try:
+        # 좌표를 각도로 변환 (필요시 매핑 로직 추가 가능)
+        x_angle = max(0, min(180, x))
+        y_angle = max(0, min(180, y))
+        
+        logger.info(f"🎯 레이저 XY 좌표 변환: ({x}, {y}) → X각도={x_angle}, Y각도={y_angle}")
+        return set_xy_servo_angles(x_angle, y_angle)
+        
+    except Exception as e:
+        logger.error(f"❌ 레이저 XY 제어 실패: {e}")
+        return False
+
+def get_servo_status():
+    """서보모터 상태 조회"""
+    return {
+        "initialized": _initialized,
+        "current_x_angle": current_x_angle,
+        "current_y_angle": current_y_angle,
+        "pins": {
+            "x_servo": X_SERVO_PIN,
+            "y_servo": Y_SERVO_PIN
+        },
+        "pwm_frequency": PWM_FREQUENCY
+    }
+
 def get_servo_limits():
     """서보 각도 제한값 반환"""
     return {"min": 0, "max": 180}
 
+def reset_to_center():
+    """서보모터를 중앙 위치로 리셋"""
+    logger.info("🔄 서보모터 중앙 위치로 리셋")
+    return set_xy_servo_angles(90, 90)
+
 def cleanup():
     """서보 리소스 정리"""
-    global pwm, _initialized
+    global x_pwm, y_pwm, _initialized
     
     try:
-        if pwm:
-            pwm.stop()
+        if x_pwm:
+            x_pwm.stop()
+        if y_pwm:
+            y_pwm.stop()
         GPIO.cleanup()
         _initialized = False
-        logger.info("🧹 서보모터 정리 완료")
+        logger.info("🧹 X축, Y축 서보모터 정리 완료")
     except Exception as e:
         logger.error(f"⚠️ 서보모터 정리 중 오류: {e}")
 

@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime, timedelta
 from services.feed_setting import feed_config
 
-SERVO_PIN = 18
+SERVO_PIN = 18  # 급식용 서보모터 (PIN 12, hardware PWM)
 PWM_FREQUENCY = 50
 
 GPIO.setmode(GPIO.BCM)
