@@ -1,11 +1,9 @@
-# services/feed_settings.py
+# services/feed_setting.py
+from services.settings_service import settings_service
 
-feed_config = {
-    "mode": "manual",  # 또는 "auto"
-    "interval": 60,     # 분 단위
-    "amount": 1         # 한번에 주는 양
-}
+# 기존 코드와의 호환성을 위한 별칭
+feed_config = settings_service.settings
 
 def update_settings(new_settings: dict):
-    feed_config.update(new_settings)
-    print(f"🔧 급식 설정 업데이트됨: {feed_config}")
+    """기존 코드와의 호환성을 위한 함수"""
+    return settings_service.update_settings(new_settings)

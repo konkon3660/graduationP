@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>급식 설정 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+        .warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍽 급식 설정 테스트</h1>
+        
+        <div class="form-group">
+            <label for="mode">모드:</label>
+            <select id="mode">
+                <option value="manual">수동</option>
+                <option value="auto">자동</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="interval">간격 (분):</label>
+            <input type="number" id="interval" min="1" max="1440" value="60">
+        </div>
+        
+        <div class="form-group">
+            <label for="amount">급식량 (회):</label>
+            <input type="number" id="amount" min="1" max="10" value="1">
+        </div>
+        
+        <div class="form-group">
+            <button onclick="updateSettings()">설정 업데이트</button>
+            <button onclick="getSettings()">설정 조회</button>
+            <button onclick="startScheduler()">스케줄러 시작</button>
+            <button onclick="stopScheduler()">스케줄러 중지</button>
+            <button onclick="manualFeed()">수동 급식</button>
+        </div>
+        
+        <div class="status" id="status">
+            연결 상태: <span id="connectionStatus">연결 중...</span>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/settings`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                isConnected = true;
+                document.getElementById('connectionStatus').textContent = '연결됨';
+                document.getElementById('connectionStatus').style.color = '#28a745';
+                log('WebSocket 연결됨', 'success');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    log(`메시지 파싱 오류: ${e}`, 'error');
+                }
+            };
+            
+            ws.onclose = function() {
+                isConnected = false;
+                document.getElementById('connectionStatus').textContent = '연결 해제됨';
+                document.getElementById('connectionStatus').style.color = '#dc3545';
+                log('WebSocket 연결 해제됨', 'warning');
+                
+                // 3초 후 재연결 시도
+                setTimeout(connect, 3000);
+            };
+            
+            ws.onerror = function(error) {
+                log(`WebSocket 오류: ${error}`, 'error');
+            };
+        }
+
+        function handleMessage(data) {
+            switch(data.type) {
+                case 'init':
+                    log('초기 설정 수신', 'info');
+                    updateForm(data.settings);
+                    break;
+                case 'settings_updated':
+                    log('설정 업데이트 완료', 'success');
+                    updateForm(data.settings);
+                    break;
+                case 'settings':
+                    log('설정 조회 완료', 'info');
+                    updateForm(data.settings);
+                    break;
+                case 'scheduler_started':
+                    log('스케줄러 시작됨', 'success');
+                    break;
+                case 'scheduler_stopped':
+                    log('스케줄러 중지됨', 'warning');
+                    break;
+                case 'manual_feed_completed':
+                    log(`수동 급식 완료: ${data.amount}회`, 'success');
+                    break;
+                case 'error':
+                    log(`오류: ${data.message}`, 'error');
+                    break;
+                default:
+                    log(`알 수 없는 메시지 타입: ${data.type}`, 'warning');
+            }
+        }
+
+        function updateForm(settings) {
+            document.getElementById('mode').value = settings.mode || 'manual';
+            document.getElementById('interval').value = settings.interval || 60;
+            document.getElementById('amount').value = settings.amount || 1;
+        }
+
+        function sendMessage(message) {
+            if (!isConnected || !ws) {
+                log('WebSocket이 연결되지 않았습니다', 'error');
+                return;
+            }
+            ws.send(JSON.stringify(message));
+        }
+
+        function updateSettings() {
+            const settings = {
+                mode: document.getElementById('mode').value,
+                interval: parseInt(document.getElementById('interval').value),
+                amount: parseInt(document.getElementById('amount').value)
+            };
+            
+            sendMessage({
+                type: 'update_settings',
+                settings: settings
+            });
+            
+            log('설정 업데이트 요청 전송', 'info');
+        }
+
+        function getSettings() {
+            sendMessage({
+                type: 'get_settings'
+            });
+            
+            log('설정 조회 요청 전송', 'info');
+        }
+
+        function startScheduler() {
+            sendMessage({
+                type: 'start_scheduler'
+            });
+            
+            log('스케줄러 시작 요청 전송', 'info');
+        }
+
+        function stopScheduler() {
+            sendMessage({
+                type: 'stop_scheduler'
+            });
+            
+            log('스케줄러 중지 요청 전송', 'info');
+        }
+
+        function manualFeed() {
+            const amount = parseInt(document.getElementById('amount').value);
+            sendMessage({
+                type: 'manual_feed',
+                amount: amount
+            });
+            
+            log(`수동 급식 요청 전송: ${amount}회`, 'info');
+        }
+
+        // 페이지 로드 시 연결
+        window.onload = function() {
+            connect();
+        };
+
+        // 페이지 언로드 시 연결 해제
+        window.onbeforeunload = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html> 
