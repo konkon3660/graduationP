@@ -14,14 +14,14 @@ app = FastAPI()
 app.state.mic_sender = mic_sender
 app.state.mic_streamer = mic_streamer
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-# 정적 디렉터리 mount
-app.mount("/static", StaticFiles(directory="."), name="static")
+# from fastapi.staticfiles import StaticFiles
+# from fastapi.responses import HTMLResponse
+# # 정적 디렉터리 mount
+# app.mount("/static", StaticFiles(directory="."), name="static")
 
-@app.get("/")
-async def root():
-    return HTMLResponse(content=open("test_settings.html", "r", encoding="utf-8").read())
+# @app.get("/")
+# async def root():
+#     return HTMLResponse(content=open("test_settings.html", "r", encoding="utf-8").read())
 
 
 # ✅ 라우터 등록
