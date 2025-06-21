@@ -19,6 +19,17 @@
 
 ## 📋 지원하는 JSON 명령
 
+### ⚙️ 설정 명령 (클라이언트 호환성)
+
+#### 클라이언트 설정 JSON
+```json
+{
+    "mode": "auto",
+    "amount": 5,
+    "interval": 480
+}
+```
+
 ### 🍽 급식 명령
 
 #### 기본 급식
@@ -193,38 +204,32 @@
 }
 ```
 
-## 🧪 테스트 방법
-
-### 1. 서버 실행
-```bash
-python main.py
-```
-
-### 2. JSON 명령 테스트 페이지 접속
-```
-http://localhost:8000/test_json_commands.html
-```
-
-### 3. WebSocket 직접 테스트
-```javascript
-const ws = new WebSocket('ws://localhost:8000/ws');
-
-// 급식 명령 전송
-ws.send(JSON.stringify({
-    "type": "feed",
-    "amount": 2
-}));
-
-// 응답 수신
-ws.onmessage = function(event) {
-    const response = JSON.parse(event.data);
-    console.log('응답:', response);
-};
-```
-
 ## 🔄 기존 호환성
 
-### 문자열 명령 (기존)
+### 클라이언트 메시지 형식
+
+#### 문자열 명령 (기존)
+```javascript
+sendCommand("forward");        // 로봇 전진
+sendCommand("laser_on");       // 레이저 켜기
+sendCommand("feed_now");       // 급식 실행
+sendCommand("laser_x:" + laserX);           // X축 각도
+sendCommand("laser_y:" + laserY);           // Y축 각도
+sendCommand("laser_xy:" + laserX + "," + laserY); // XY 좌표
+```
+
+#### JSON 명령 (설정)
+```javascript
+JSONObject json = new JSONObject();
+json.put("mode", "auto");
+json.put("amount", 5);
+json.put("interval", 480);
+wsClient.sendText(json.toString());
+```
+
+### 서버 지원 형식
+
+#### 문자열 명령 (기존)
 ```
 feed_now
 laser_on
@@ -232,12 +237,13 @@ motor:forward
 servo:90
 ```
 
-### JSON 명령 (새로운)
+#### JSON 명령 (새로운)
 ```json
 {"type": "feed_now"}
 {"type": "laser", "action": "on"}
 {"type": "motor", "direction": "forward"}
 {"type": "servo", "angle": 90}
+{"mode": "auto", "amount": 5, "interval": 480}
 ```
 
 ## 📁 파일 구조
@@ -326,3 +332,51 @@ ws.send(JSON.stringify({
 - ✅ 오류 처리 및 로깅
 
 이제 클라이언트에서 JSON 형태로 급식 명령을 보내면 서버가 정상적으로 인식하고 처리할 수 있습니다! 🎉 
+
+## 🧪 테스트 방법
+
+### 1. 서버 실행
+```bash
+python main.py
+```
+
+### 2. JSON 명령 테스트 페이지 접속
+```
+http://localhost:8000/test_json_commands.html
+```
+
+### 3. WebSocket 직접 테스트
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws');
+
+// 급식 명령 전송
+ws.send(JSON.stringify({
+    "type": "feed",
+    "amount": 2
+}));
+
+// 설정 명령 전송
+ws.send(JSON.stringify({
+    "mode": "auto",
+    "amount": 5,
+    "interval": 480
+}));
+
+// 응답 수신
+ws.onmessage = function(event) {
+    const response = JSON.parse(event.data);
+    console.log('응답:', response);
+};
+```
+
+## 📁 파일 구조
+
+```
+services/
+└── command_service.py          # 명령 처리 서비스 (JSON 지원 추가)
+
+routers/
+└── ws_router.py               # WebSocket 라우터 (JSON 감지 추가)
+
+test_json_commands.html        # JSON 명령 테스트 페이지
+```

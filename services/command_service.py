@@ -308,6 +308,26 @@ async def handle_json_command(command_data: dict) -> bool:
     try:
         command_type = command_data.get("type", "").lower()
         
+        # === 설정 관련 JSON 명령 (클라이언트 호환성) ===
+        if "mode" in command_data or "amount" in command_data or "interval" in command_data:
+            # 설정 관련 JSON: {"mode": "auto", "amount": 5, "interval": 480}
+            try:
+                from services.settings_service import settings_service
+                from services.feed_scheduler import feed_scheduler
+                
+                # 설정 업데이트
+                updated_settings = settings_service.update_settings(command_data)
+                
+                # 스케줄러 리셋 (설정 변경 시)
+                feed_scheduler.reset_schedule()
+                
+                logger.info(f"🔧 설정 업데이트됨 (JSON): {updated_settings}")
+                return True
+                
+            except Exception as e:
+                logger.error(f"❌ 설정 업데이트 실패: {e}")
+                return False
+        
         # === 급식 관련 JSON 명령 ===
         if command_type == "feed":
             amount = command_data.get("amount", 1)
@@ -450,6 +470,10 @@ def get_available_commands() -> List[str]:
 def get_available_json_commands() -> List[Dict]:
     """사용 가능한 JSON 명령 목록"""
     return [
+        # 설정 (클라이언트 호환성)
+        {"mode": "auto", "amount": 5, "interval": 480},
+        {"mode": "manual", "amount": 1, "interval": 60},
+        
         # 급식 (기본)
         {"type": "feed", "amount": 1},
         {"type": "feed_now"},

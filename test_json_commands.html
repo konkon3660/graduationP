@@ -121,6 +121,15 @@
             <div class="json-display" id="feedJson"></div>
         </div>
         
+        <!-- 설정 명령 섹션 -->
+        <div class="section">
+            <h3>⚙️ 설정 명령 (클라이언트 호환성)</h3>
+            <button onclick="sendSettingsCommand('auto', 5, 480)">자동 모드 (5회, 8시간)</button>
+            <button onclick="sendSettingsCommand('manual', 1, 60)">수동 모드 (1회, 1시간)</button>
+            <button onclick="sendSettingsCommand('auto', 3, 120)">자동 모드 (3회, 2시간)</button>
+            <div class="json-display" id="settingsJson"></div>
+        </div>
+        
         <!-- 레이저 명령 섹션 -->
         <div class="section">
             <h3>🔴 레이저 명령</h3>
@@ -295,6 +304,13 @@
         function sendResetCommand() {
             const command = { "type": "reset" };
             document.getElementById('otherJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 설정 명령 (클라이언트 호환성)
+        function sendSettingsCommand(mode, amount, interval) {
+            const command = { "mode": mode, "amount": amount, "interval": interval };
+            document.getElementById('settingsJson').textContent = JSON.stringify(command, null, 2);
             sendMessage(command);
         }
 
