@@ -4,6 +4,7 @@
 import sys
 import os
 import time
+from services.sol_service import fire
 
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -86,7 +87,7 @@ def test_pin_mapping():
         print(f"✅ sol_service.py: RELAY_PIN={RELAY_PIN}")
     except Exception as e:
         print(f"❌ sol_service.py 확인 실패: {e}")
-    
+    fire()
     print("\n" + "=" * 60)
     
     # 핀 충돌 검사
