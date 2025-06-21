@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 명령 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .feed-btn {
+            background-color: #28a745;
+        }
+        .feed-btn:hover {
+            background-color: #1e7e34;
+        }
+        .laser-btn {
+            background-color: #dc3545;
+        }
+        .laser-btn:hover {
+            background-color: #c82333;
+        }
+        .motor-btn {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .motor-btn:hover {
+            background-color: #e0a800;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+        .warning { color: #ffc107; }
+        .json-display {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 JSON 명령 테스트</h1>
+        
+        <div class="status" id="status">
+            연결 상태: <span id="connectionStatus">연결 중...</span>
+        </div>
+        
+        <!-- 급식 명령 섹션 -->
+        <div class="section">
+            <h3>🍽 급식 명령</h3>
+            <button class="feed-btn" onclick="sendFeedCommand('feed', 1)">급식 1회</button>
+            <button class="feed-btn" onclick="sendFeedCommand('feed', 2)">급식 2회</button>
+            <button class="feed-btn" onclick="sendFeedCommand('feed', 3)">급식 3회</button>
+            <button class="feed-btn" onclick="sendFeedCommand('feed_now')">즉시 급식</button>
+            <div class="json-display" id="feedJson"></div>
+        </div>
+        
+        <!-- 레이저 명령 섹션 -->
+        <div class="section">
+            <h3>🔴 레이저 명령</h3>
+            <button class="laser-btn" onclick="sendLaserCommand('on')">레이저 ON</button>
+            <button class="laser-btn" onclick="sendLaserCommand('off')">레이저 OFF</button>
+            <button class="laser-btn" onclick="sendLaserCommand('xy', 90, 90)">중앙 (90,90)</button>
+            <button class="laser-btn" onclick="sendLaserCommand('x', 45)">X축 45도</button>
+            <button class="laser-btn" onclick="sendLaserCommand('y', 135)">Y축 135도</button>
+            <div class="json-display" id="laserJson"></div>
+        </div>
+        
+        <!-- 모터 명령 섹션 -->
+        <div class="section">
+            <h3>🕹️ 모터 명령</h3>
+            <button class="motor-btn" onclick="sendMotorCommand('forward')">전진</button>
+            <button class="motor-btn" onclick="sendMotorCommand('backward')">후진</button>
+            <button class="motor-btn" onclick="sendMotorCommand('left')">좌회전</button>
+            <button class="motor-btn" onclick="sendMotorCommand('right')">우회전</button>
+            <button class="motor-btn" onclick="sendMotorCommand('stop')">정지</button>
+            <div class="json-display" id="motorJson"></div>
+        </div>
+        
+        <!-- 서보 명령 섹션 -->
+        <div class="section">
+            <h3>🎯 서보 명령</h3>
+            <button onclick="sendServoCommand(0)">0도</button>
+            <button onclick="sendServoCommand(45)">45도</button>
+            <button onclick="sendServoCommand(90)">90도</button>
+            <button onclick="sendServoCommand(135)">135도</button>
+            <button onclick="sendServoCommand(180)">180도</button>
+            <div class="json-display" id="servoJson"></div>
+        </div>
+        
+        <!-- 기타 명령 섹션 -->
+        <div class="section">
+            <h3>🔧 기타 명령</h3>
+            <button onclick="sendFireCommand()">🔥 발사</button>
+            <button onclick="sendResetCommand()">🔄 리셋</button>
+            <div class="json-display" id="otherJson"></div>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                isConnected = true;
+                document.getElementById('connectionStatus').textContent = '연결됨';
+                document.getElementById('connectionStatus').style.color = '#28a745';
+                log('WebSocket 연결됨', 'success');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`응답 수신: ${JSON.stringify(data, null, 2)}`, data.success ? 'success' : 'error');
+                } catch (e) {
+                    // 문자열 응답 (기존 호환성)
+                    log(`응답 수신: ${event.data}`, 'info');
+                }
+            };
+            
+            ws.onclose = function() {
+                isConnected = false;
+                document.getElementById('connectionStatus').textContent = '연결 해제됨';
+                document.getElementById('connectionStatus').style.color = '#dc3545';
+                log('WebSocket 연결 해제됨', 'warning');
+                
+                // 3초 후 재연결 시도
+                setTimeout(connect, 3000);
+            };
+            
+            ws.onerror = function(error) {
+                log(`WebSocket 오류: ${error}`, 'error');
+            };
+        }
+
+        function sendMessage(message) {
+            if (!isConnected || !ws) {
+                log('WebSocket이 연결되지 않았습니다', 'error');
+                return;
+            }
+            ws.send(JSON.stringify(message));
+            log(`명령 전송: ${JSON.stringify(message, null, 2)}`, 'info');
+        }
+
+        // 급식 명령
+        function sendFeedCommand(type, amount = 1) {
+            let command;
+            if (type === 'feed_now') {
+                command = { "type": "feed_now" };
+            } else {
+                command = { "type": "feed", "amount": amount };
+            }
+            
+            document.getElementById('feedJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 레이저 명령
+        function sendLaserCommand(action, x = 90, y = 90) {
+            let command;
+            if (action === 'on' || action === 'off') {
+                command = { "type": "laser", "action": action };
+            } else if (action === 'xy') {
+                command = { "type": "laser", "action": "xy", "x": x, "y": y };
+            } else if (action === 'x') {
+                command = { "type": "laser", "action": "x", "x": x };
+            } else if (action === 'y') {
+                command = { "type": "laser", "action": "y", "y": y };
+            }
+            
+            document.getElementById('laserJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 모터 명령
+        function sendMotorCommand(direction, speed = 70) {
+            const command = { "type": "motor", "direction": direction, "speed": speed };
+            document.getElementById('motorJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 서보 명령
+        function sendServoCommand(angle) {
+            const command = { "type": "servo", "angle": angle };
+            document.getElementById('servoJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 발사 명령
+        function sendFireCommand() {
+            const command = { "type": "fire" };
+            document.getElementById('otherJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 리셋 명령
+        function sendResetCommand() {
+            const command = { "type": "reset" };
+            document.getElementById('otherJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 페이지 로드 시 연결
+        window.onload = function() {
+            connect();
+        };
+
+        // 페이지 언로드 시 연결 해제
+        window.onbeforeunload = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html> 

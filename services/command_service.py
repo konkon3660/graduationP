@@ -1,7 +1,8 @@
 # services/command_service.py - 리팩토링된 명령 처리 서비스
 import logging
 import asyncio
-from typing import Dict, List, Optional
+import json
+from typing import Dict, List, Optional, Union
 import concurrent.futures
 
 # 각 하드웨어 서비스 import
@@ -12,7 +13,7 @@ from services.motor_service import (
 )
 from services.xy_servo import set_servo_angle, set_xy_servo_angles, handle_laser_xy, cleanup as servo_cleanup
 from services.sol_service import fire as solenoid_fire
-from services.feed_service import feed_once
+from services.feed_service import feed_once, feed_multiple
 
 logger = logging.getLogger(__name__)
 
@@ -169,22 +170,37 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 급식 실패: {e}")
             return False
+    
+    def handle_feed_multiple(self, amount: int):
+        """지정된 횟수만큼 급식"""
+        try:
+            feed_multiple(amount)
+            logger.info(f"🍚 급식 {amount}회 실행")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 급식 실패: {e}")
+            return False
 
 # 전역 인스턴스
 command_handler = CommandHandler()
 _executor = concurrent.futures.ThreadPoolExecutor()
 
-async def handle_command_async(command: str) -> bool:
+async def handle_command_async(command: Union[str, dict]) -> bool:
     """
-    명령 문자열을 파싱하여 적절한 하드웨어 함수 호출 (비동기)
+    명령 문자열 또는 JSON을 파싱하여 적절한 하드웨어 함수 호출 (비동기)
     
     Args:
-        command: 명령 문자열
+        command: 명령 문자열 또는 JSON 딕셔너리
         
     Returns:
         bool: 명령 처리 성공 여부
     """
     try:
+        # JSON 명령 처리
+        if isinstance(command, dict):
+            return await handle_json_command(command)
+        
+        # 문자열 명령 처리 (기존 로직)
         cmd = command.strip().lower()
         
         # === 레이저 명령 ===
@@ -279,6 +295,81 @@ async def handle_command_async(command: str) -> bool:
         logger.error(f"명령 처리 중 예외 발생: {e}")
         return False
 
+async def handle_json_command(command_data: dict) -> bool:
+    """
+    JSON 명령을 처리합니다.
+    
+    Args:
+        command_data: JSON 명령 딕셔너리
+        
+    Returns:
+        bool: 명령 처리 성공 여부
+    """
+    try:
+        command_type = command_data.get("type", "").lower()
+        
+        # === 급식 관련 JSON 명령 ===
+        if command_type == "feed":
+            amount = command_data.get("amount", 1)
+            if amount == 1:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+            else:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        elif command_type == "feed_now":
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+        
+        elif command_type == "feed_multiple":
+            amount = command_data.get("amount", 1)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        # === 레이저 관련 JSON 명령 ===
+        elif command_type == "laser":
+            action = command_data.get("action", "").lower()
+            if action == "on":
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_on)
+            elif action == "off":
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_off)
+            elif action == "xy":
+                x = command_data.get("x", 90)
+                y = command_data.get("y", 90)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_xy, x, y)
+            elif action == "x":
+                x = command_data.get("x", 90)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_x, x)
+            elif action == "y":
+                y = command_data.get("y", 90)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_y, y)
+        
+        # === 모터 관련 JSON 명령 ===
+        elif command_type == "motor":
+            direction = command_data.get("direction", "").lower()
+            speed = command_data.get("speed", 70)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, direction, speed)
+        
+        # === 서보 관련 JSON 명령 ===
+        elif command_type == "servo":
+            angle = command_data.get("angle", 90)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
+        
+        # === 솔레노이드 관련 JSON 명령 ===
+        elif command_type == "fire":
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_fire)
+        
+        # === 시스템 관련 JSON 명령 ===
+        elif command_type == "reset":
+            await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
+            return True
+        
+        # === 알 수 없는 JSON 명령 ===
+        else:
+            logger.warning(f"알 수 없는 JSON 명령: {command_data}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"JSON 명령 처리 중 예외 발생: {e}")
+        return False
+
 def get_system_status() -> Dict:
     """시스템 상태 조회"""
     return {
@@ -312,4 +403,36 @@ def get_available_commands() -> List[str]:
         
         # 오디오
         "audio_receive_on", "audio_receive_off"
+    ]
+
+def get_available_json_commands() -> List[Dict]:
+    """사용 가능한 JSON 명령 목록"""
+    return [
+        # 급식
+        {"type": "feed", "amount": 1},
+        {"type": "feed_now"},
+        {"type": "feed_multiple", "amount": 3},
+        
+        # 레이저
+        {"type": "laser", "action": "on"},
+        {"type": "laser", "action": "off"},
+        {"type": "laser", "action": "xy", "x": 90, "y": 90},
+        {"type": "laser", "action": "x", "x": 90},
+        {"type": "laser", "action": "y", "y": 90},
+        
+        # 모터
+        {"type": "motor", "direction": "forward", "speed": 70},
+        {"type": "motor", "direction": "backward", "speed": 70},
+        {"type": "motor", "direction": "left", "speed": 70},
+        {"type": "motor", "direction": "right", "speed": 70},
+        {"type": "motor", "direction": "stop"},
+        
+        # 서보
+        {"type": "servo", "angle": 90},
+        
+        # 솔레노이드
+        {"type": "fire"},
+        
+        # 시스템
+        {"type": "reset"}
     ]
