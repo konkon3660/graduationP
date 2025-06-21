@@ -111,6 +111,13 @@
             <button class="feed-btn" onclick="sendFeedCommand('feed', 2)">급식 2회</button>
             <button class="feed-btn" onclick="sendFeedCommand('feed', 3)">급식 3회</button>
             <button class="feed-btn" onclick="sendFeedCommand('feed_now')">즉시 급식</button>
+            <hr style="margin: 15px 0;">
+            <h4>클라이언트 호환성 테스트</h4>
+            <button class="feed-btn" onclick="sendCustomFeedCommand('feeding', 1)">feeding</button>
+            <button class="feed-btn" onclick="sendCustomFeedCommand('give_food', 1)">give_food</button>
+            <button class="feed-btn" onclick="sendCustomFeedCommand('food', 1)">food</button>
+            <button class="feed-btn" onclick="sendCustomFeedCommand('dispense', 1)">dispense</button>
+            <button class="feed-btn" onclick="sendServoFeedCommand(1)">servo feed</button>
             <div class="json-display" id="feedJson"></div>
         </div>
         
@@ -228,6 +235,20 @@
                 command = { "type": "feed", "amount": amount };
             }
             
+            document.getElementById('feedJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 커스텀 급식 명령 (클라이언트 호환성)
+        function sendCustomFeedCommand(type, amount = 1) {
+            const command = { "type": type, "amount": amount };
+            document.getElementById('feedJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 서보 급식 명령
+        function sendServoFeedCommand(amount = 1) {
+            const command = { "type": "servo", "action": "feed", "amount": amount };
             document.getElementById('feedJson').textContent = JSON.stringify(command, null, 2);
             sendMessage(command);
         }

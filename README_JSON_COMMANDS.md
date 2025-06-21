@@ -44,6 +44,43 @@
 }
 ```
 
+#### 클라이언트 호환성 급식 명령
+```json
+{
+    "type": "feeding",
+    "amount": 1
+}
+```
+
+```json
+{
+    "type": "give_food",
+    "amount": 1
+}
+```
+
+```json
+{
+    "type": "food",
+    "amount": 1
+}
+```
+
+```json
+{
+    "type": "dispense",
+    "amount": 1
+}
+```
+
+```json
+{
+    "type": "servo",
+    "action": "feed",
+    "amount": 1
+}
+```
+
 ### 🔴 레이저 명령
 
 #### 레이저 ON/OFF

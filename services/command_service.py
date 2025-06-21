@@ -323,6 +323,53 @@ async def handle_json_command(command_data: dict) -> bool:
             amount = command_data.get("amount", 1)
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
         
+        # === 추가 급식 명령 형식들 (클라이언트 호환성) ===
+        elif command_type == "feeding":
+            # {"type": "feeding", "amount": 1}
+            amount = command_data.get("amount", 1)
+            if amount == 1:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+            else:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        elif command_type == "give_food":
+            # {"type": "give_food", "amount": 1}
+            amount = command_data.get("amount", 1)
+            if amount == 1:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+            else:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        elif command_type == "food":
+            # {"type": "food", "amount": 1}
+            amount = command_data.get("amount", 1)
+            if amount == 1:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+            else:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        elif command_type == "dispense":
+            # {"type": "dispense", "amount": 1}
+            amount = command_data.get("amount", 1)
+            if amount == 1:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+            else:
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+        
+        elif command_type == "servo":
+            # {"type": "servo", "action": "feed", "amount": 1}
+            action = command_data.get("action", "").lower()
+            if action == "feed":
+                amount = command_data.get("amount", 1)
+                if amount == 1:
+                    return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+                else:
+                    return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+            else:
+                # 일반 서보 각도 제어
+                angle = command_data.get("angle", 90)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
+        
         # === 레이저 관련 JSON 명령 ===
         elif command_type == "laser":
             action = command_data.get("action", "").lower()
@@ -346,11 +393,6 @@ async def handle_json_command(command_data: dict) -> bool:
             direction = command_data.get("direction", "").lower()
             speed = command_data.get("speed", 70)
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, direction, speed)
-        
-        # === 서보 관련 JSON 명령 ===
-        elif command_type == "servo":
-            angle = command_data.get("angle", 90)
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
         
         # === 솔레노이드 관련 JSON 명령 ===
         elif command_type == "fire":
@@ -408,10 +450,17 @@ def get_available_commands() -> List[str]:
 def get_available_json_commands() -> List[Dict]:
     """사용 가능한 JSON 명령 목록"""
     return [
-        # 급식
+        # 급식 (기본)
         {"type": "feed", "amount": 1},
         {"type": "feed_now"},
         {"type": "feed_multiple", "amount": 3},
+        
+        # 급식 (클라이언트 호환성)
+        {"type": "feeding", "amount": 1},
+        {"type": "give_food", "amount": 1},
+        {"type": "food", "amount": 1},
+        {"type": "dispense", "amount": 1},
+        {"type": "servo", "action": "feed", "amount": 1},
         
         # 레이저
         {"type": "laser", "action": "on"},
