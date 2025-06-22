@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Robot Display</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #ffb6d1, #ffc2de);
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+        }
+        
+        .face {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.4s ease;
+        }
+        
+        .eyes {
+            width: 70vw;
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 6vh;
+            position: relative;
+        }
+        
+        .eye {
+            position: relative;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
+        }
+        
+        .pupil {
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        }
+        
+        .eyelid {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            border-radius: 50%;
+            transform: scaleY(0);
+            transform-origin: top;
+            animation: blink 5s infinite;
+            z-index: 2;
+        }
+        
+        @keyframes blink {
+            0%,
+            90%,
+            100% {
+                transform: scaleY(0);
+            }
+            92%,
+            96% {
+                transform: scaleY(1);
+            }
+        }
+        
+        .mouth {
+            transition: all 0.4s ease;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+        }
+        /* 기본 (happy) */
+        
+        .happy {
+            background: #fff3f9;
+        }
+        
+        .happy .eye {
+            width: 16vw;
+            height: 16vw;
+            background: #fff0f5;
+        }
+        
+        .happy .pupil {
+            width: 8vw;
+            height: 8vw;
+            background: radial-gradient(circle, #222, #000);
+        }
+        
+        .happy .mouth {
+            width: 16vw;
+            height: 9vw;
+            background: #ff82aa;
+            border-radius: 0 0 60% 60% / 0 0 100% 100%;
+            border-bottom: 4px solid #ff3070;
+            transform: translateY(-1vw);
+        }
+        
+        .happy .eyelid {
+            background-color: #ffe6ec;
+        }
+        /* 레이저 ON */
+        
+        .laser-on {
+            background: radial-gradient(circle, #ff6666, #cc0000);
+        }
+        
+        .laser-on .eye {
+            width: 14vw;
+            height: 8vw;
+            background: #ffcccc;
+            border-radius: 50% / 40%;
+            box-shadow: 0 0 18px 5px #ff0000 inset, 0 0 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .laser-on .pupil {
+            width: 5vw;
+            height: 5vw;
+            background: radial-gradient(circle at 40% 50%, #ff0000, #330000 90%);
+            box-shadow: 0 0 12px 5px #ff0000, inset 0 0 15px 7px #aa0000;
+        }
+        
+        .laser-on .mouth {
+            width: 12vw;
+            height: 3vw;
+            background: #cc2222;
+            box-shadow: 0 0 18px 4px #ff0000 inset, 0 0 6px rgba(0, 0, 0, 0.3);
+            transform: translateY(-1vw);
+            border-radius: 0;
+        }
+        
+        .laser-on .eyelid {
+            background-color: rgba(204, 34, 34, 0.7);
+            border-radius: 50% / 40%;
+            box-shadow: 0 0 15px 5px #cc2222 inset;
+            opacity: 0.75;
+        }
+        /* 공 발사 */
+        
+        .ball-fired {
+            background: radial-gradient(circle, #fff2a6, #ffe066);
+        }
+        
+        .ball-fired .eye {
+            width: 18vw;
+            height: 18vw;
+            background: #fff9c2;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .ball-fired .pupil {
+            width: 10vw;
+            height: 10vw;
+            background: radial-gradient(circle, #aa5500, #552200);
+        }
+        
+        .ball-fired .mouth {
+            width: 8vw;
+            height: 8vw;
+            background: #ffbb33;
+            border-radius: 50%;
+            box-shadow: inset 0 0 10px #ff8800, 0 0 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .ball-fired .eyelid {
+            background-color: #fff2a6;
+        }
+        /* 밥 나옴 */
+        
+        .food-on {
+            background: radial-gradient(circle, #fff2a6, #ffd966);
+        }
+        
+        .food-on .eye {
+            width: 16vw;
+            height: 16vw;
+            background: #fff8dd;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .food-on .pupil {
+            display: none;
+        }
+        
+        .food-on .eye::before,
+        .food-on .eye::after {
+            content: '';
+            position: absolute;
+            background: #ffcc00;
+            width: 8vw;
+            height: 8vw;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            top: 4vw;
+            filter: drop-shadow(0 0 8px #ffd700);
+        }
+        
+        .food-on .eye::after {
+            right: 0;
+        }
+        
+        .food-on .eye::before {
+            left: 0;
+        }
+        
+        .food-on .mouth {
+            width: 16vw;
+            height: 9vw;
+            background: #ffcc66;
+            border-bottom: 4px solid #eab800;
+            transform: translateY(-1vw);
+            border-radius: 0 0 60% 60% / 0 0 100% 100%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.3);
+        }
+        
+        .food-on .eyelid {
+            background-color: #fff2a6;
+        }
+        /* 버튼 스타일 */
+        
+        .buttons {
+            position: fixed;
+            bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100vw;
+            z-index: 1000;
+        }
+        
+        button {
+            padding: 10px 16px;
+            background: #fff0f5;
+            border: 2px solid #ff99cc;
+            border-radius: 12px;
+            color: #cc3366;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:hover {
+            background: #ffccdd;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="face" class="face happy">
+        <div class="eyes">
+            <div class="eye">
+                <div class="eyelid"></div>
+                <div class="pupil"></div>
+            </div>
+            <div class="eye">
+                <div class="eyelid"></div>
+                <div class="pupil"></div>
+            </div>
+        </div>
+        <div class="mouth"></div>
+    </div>
+
+    <div class="buttons">
+        <button onclick="setFace('laser-on')">레이저 ON</button>
+        <button onclick="setFace('ball-fired')">공 발사</button>
+        <button onclick="setFace('food-on')">밥 나옴</button>
+        <button onclick="setFace('happy')">기본 표정</button>
+    </div>
+
+    <script>
+        function setFace(state) {
+            const face = document.getElementById('face');
+            face.className = 'face ' + state;
+        }
+    </script>
+
+</body>
+
+</html>
