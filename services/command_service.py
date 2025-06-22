@@ -14,6 +14,7 @@ from services.motor_service import (
 from services.xy_servo import set_servo_angle, set_xy_servo_angles, handle_laser_xy, cleanup as servo_cleanup
 from services.sol_service import fire as solenoid_fire
 from services.feed_service import feed_once, feed_multiple, set_angle
+from services.ultrasonic_service import get_distance, get_distance_data, cleanup_ultrasonic
 
 logger = logging.getLogger(__name__)
 
@@ -198,18 +199,47 @@ class CommandHandler:
             logger.info("🍚 즉시 급식 실행")
             return True
         except Exception as e:
-            logger.error(f"❌ 급식 실패: {e}")
+            logger.error(f"❌ 즉시 급식 실패: {e}")
             return False
     
     def handle_feed_multiple(self, amount: int):
-        """지정된 횟수만큼 급식"""
+        """다중 급식"""
         try:
+            if not (1 <= amount <= 10):
+                logger.warning(f"급식 횟수 범위 초과: {amount}")
+                return False
+                
             feed_multiple(amount)
-            logger.info(f"🍚 급식 {amount}회 실행")
+            logger.info(f"🍚 다중 급식 실행: {amount}회")
             return True
         except Exception as e:
-            logger.error(f"❌ 급식 실패: {e}")
+            logger.error(f"❌ 다중 급식 실패: {e}")
             return False
+
+    # === 초음파 센서 제어 ===
+    def handle_get_distance(self):
+        """거리 측정"""
+        try:
+            distance = get_distance()
+            if distance is not None:
+                logger.info(f"📏 거리 측정: {distance}cm")
+                return True
+            else:
+                logger.warning("⚠️ 거리 측정 실패")
+                return False
+        except Exception as e:
+            logger.error(f"❌ 거리 측정 실패: {e}")
+            return False
+
+    def handle_get_distance_data(self):
+        """거리 데이터 반환 (클라이언트 전송용)"""
+        try:
+            distance_data = get_distance_data()
+            logger.info(f"📊 거리 데이터 생성: {distance_data}")
+            return distance_data
+        except Exception as e:
+            logger.error(f"❌ 거리 데이터 생성 실패: {e}")
+            return None
 
 # 전역 인스턴스
 command_handler = CommandHandler()
@@ -302,6 +332,10 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
         # === 급식 명령 ===
         elif cmd == "feed_now":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+        
+        # === 초음파 센서 명령 ===
+        elif cmd == "get_distance":
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance)
         
         # === 시스템 명령 ===
         elif cmd == "reset":
@@ -459,6 +493,18 @@ async def handle_json_command(command_data: dict) -> bool:
         elif command_type == "fire":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_fire)
         
+        # === 초음파 센서 관련 JSON 명령 ===
+        elif command_type == "ultrasonic":
+            action = command_data.get("action", "").lower()
+            if action == "get_distance":
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance)
+            elif action == "get_distance_data":
+                distance_data = await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance_data)
+                if distance_data:
+                    return True
+                else:
+                    return False
+        
         # === 시스템 관련 JSON 명령 ===
         elif command_type == "reset":
             await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
@@ -500,6 +546,9 @@ def get_available_commands() -> List[str]:
         
         # 급식
         "feed_now",
+        
+        # 초음파 센서
+        "get_distance",
         
         # 시스템
         "reset",
@@ -546,6 +595,10 @@ def get_available_json_commands() -> List[Dict]:
         
         # 솔레노이드
         {"type": "fire"},
+        
+        # 초음파 센서
+        {"type": "ultrasonic", "action": "get_distance"},
+        {"type": "ultrasonic", "action": "get_distance_data"},
         
         # 시스템
         {"type": "reset"}
