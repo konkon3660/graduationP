@@ -155,6 +155,21 @@
         <!-- 서보 명령 섹션 -->
         <div class="section">
             <h3>🎯 서보 명령</h3>
+            <h4>급식용 서보모터 (GPIO 18)</h4>
+            <button onclick="sendFeedServoCommand(0)">0도</button>
+            <button onclick="sendFeedServoCommand(45)">45도</button>
+            <button onclick="sendFeedServoCommand(90)">90도</button>
+            <button onclick="sendFeedServoCommand(135)">135도</button>
+            <button onclick="sendFeedServoCommand(180)">180도</button>
+            
+            <h4>레이저용 서보모터 (GPIO 19, 13)</h4>
+            <button onclick="sendLaserServoCommand(0)">X축 0도</button>
+            <button onclick="sendLaserServoCommand(45)">X축 45도</button>
+            <button onclick="sendLaserServoCommand(90)">X축 90도</button>
+            <button onclick="sendLaserServoCommand(135)">X축 135도</button>
+            <button onclick="sendLaserServoCommand(180)">X축 180도</button>
+            
+            <h4>기존 서보 명령 (X축 기본)</h4>
             <button onclick="sendServoCommand(0)">0도</button>
             <button onclick="sendServoCommand(45)">45도</button>
             <button onclick="sendServoCommand(90)">90도</button>
@@ -289,6 +304,20 @@
         // 서보 명령
         function sendServoCommand(angle) {
             const command = { "type": "servo", "angle": angle };
+            document.getElementById('servoJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 급식용 서보모터 명령 (GPIO 18)
+        function sendFeedServoCommand(angle) {
+            const command = { "type": "feed_servo", "angle": angle };
+            document.getElementById('servoJson').textContent = JSON.stringify(command, null, 2);
+            sendMessage(command);
+        }
+
+        // 레이저용 서보모터 명령 (GPIO 19, 13)
+        function sendLaserServoCommand(angle) {
+            const command = { "type": "laser_servo", "angle": angle };
             document.getElementById('servoJson').textContent = JSON.stringify(command, null, 2);
             sendMessage(command);
         }

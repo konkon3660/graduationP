@@ -13,7 +13,7 @@ from services.motor_service import (
 )
 from services.xy_servo import set_servo_angle, set_xy_servo_angles, handle_laser_xy, cleanup as servo_cleanup
 from services.sol_service import fire as solenoid_fire
-from services.feed_service import feed_once, feed_multiple
+from services.feed_service import feed_once, feed_multiple, set_angle
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,36 @@ class CommandHandler:
             return True
         except Exception as e:
             logger.error(f"❌ 서보 제어 실패: {e}")
+            return False
+
+    def handle_feed_servo_angle(self, angle: int):
+        """급식용 서보모터 각도 제어 (GPIO 18)"""
+        try:
+            if not (0 <= angle <= 180):
+                logger.warning(f"급식 서보 각도 범위 초과: {angle}")
+                return False
+            
+            # feed_service의 서보모터 제어 함수 사용
+            set_angle(angle)
+            logger.info(f"🍚 급식 서보 각도 변경: {angle}도")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 급식 서보 제어 실패: {e}")
+            return False
+
+    def handle_laser_servo_angle(self, angle: int):
+        """레이저용 서보모터 각도 제어 (GPIO 19, 13)"""
+        try:
+            if not (0 <= angle <= 180):
+                logger.warning(f"레이저 서보 각도 범위 초과: {angle}")
+                return False
+            
+            # xy_servo의 X축 서보모터 제어 함수 사용
+            set_servo_angle(angle, "x")
+            logger.info(f"🎯 레이저 서보 각도 변경: {angle}도")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 레이저 서보 제어 실패: {e}")
             return False
 
     # === 솔레노이드 제어 ===
@@ -389,6 +419,17 @@ async def handle_json_command(command_data: dict) -> bool:
                 # 일반 서보 각도 제어
                 angle = command_data.get("angle", 90)
                 return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
+        
+        # === 새로운 서보 명령 타입들 ===
+        elif command_type == "feed_servo":
+            # 급식용 서보모터 제어 (GPIO 18)
+            angle = command_data.get("angle", 90)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_servo_angle, angle)
+        
+        elif command_type == "laser_servo":
+            # 레이저용 서보모터 제어 (GPIO 19, 13)
+            angle = command_data.get("angle", 90)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_servo_angle, angle)
         
         # === 레이저 관련 JSON 명령 ===
         elif command_type == "laser":
