@@ -27,8 +27,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 if command_data.get("type") == "ultrasonic" and command_data.get("action") == "get_distance_data":
                     # 거리 데이터 측정 및 전송
                     distance_data = get_distance_data()
-                    await websocket.send_text(json.dumps(distance_data, ensure_ascii=False))
-                    logger.info(f"📏 초음파 센서 데이터 전송: {distance_data}")
+                    if distance_data.get("distance") is not None:
+                        # 성공 시: distance: 실제거리 형식
+                        response_text = f"distance: {distance_data['distance']}"
+                    else:
+                        # 실패 시: error: 오류메시지 형식
+                        error_msg = distance_data.get("error", "측정 실패")
+                        response_text = f"error: {error_msg}"
+                    
+                    await websocket.send_text(response_text)
+                    logger.info(f"📏 초음파 센서 데이터 전송: {response_text}")
                     continue
                 
                 # JSON 명령 처리
@@ -49,8 +57,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 # 초음파 센서 거리 측정 명령인지 확인
                 if message == "get_distance":
                     distance_data = get_distance_data()
-                    await websocket.send_text(json.dumps(distance_data, ensure_ascii=False))
-                    logger.info(f"📏 초음파 센서 데이터 전송: {distance_data}")
+                    if distance_data.get("distance") is not None:
+                        # 성공 시: distance: 실제거리 형식
+                        response_text = f"distance: {distance_data['distance']}"
+                    else:
+                        # 실패 시: error: 오류메시지 형식
+                        error_msg = distance_data.get("error", "측정 실패")
+                        response_text = f"error: {error_msg}"
+                    
+                    await websocket.send_text(response_text)
+                    logger.info(f"📏 초음파 센서 데이터 전송: {response_text}")
                     continue
                 
                 # 문자열 명령 처리
