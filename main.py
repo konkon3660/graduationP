@@ -21,7 +21,7 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 
 @app.get("/")
 async def root():
-    return HTMLResponse(content=open("index.html", "r", encoding="utf-8").read())
+    return HTMLResponse(content=open("Exam/test_setting.html", "r", encoding="utf-8").read())
 
 
 # ✅ 라우터 등록
