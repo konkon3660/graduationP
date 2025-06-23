@@ -1,6 +1,6 @@
 import json
 import logging
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter
 from services.auto_play_service import auto_play_service
 from services.audio_playback_service import audio_playback_service
 import asyncio
@@ -151,3 +151,18 @@ class SettingsWebSocketRouter:
 
 # 전역 인스턴스
 settings_router = SettingsWebSocketRouter() 
+
+router = APIRouter()
+
+@router.websocket("/ws/settings")
+async def websocket_settings(websocket: WebSocket):
+    await settings_router.connect(websocket)
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await settings_router.handle_message(websocket, message)
+    except WebSocketDisconnect:
+        settings_router.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"❌ 설정 웹소켓 오류: {e}")
+        settings_router.disconnect(websocket) 

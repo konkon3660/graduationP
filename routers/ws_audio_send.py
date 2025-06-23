@@ -25,9 +25,11 @@ def suppress_alsa_stderr():
         yield
     finally:
         try:
-            os.dup2(saved_stderr, stderr_fd)
-            os.close(fd)
-            os.close(saved_stderr)
+            if 'saved_stderr' in locals():
+                os.dup2(saved_stderr, stderr_fd)
+                os.close(saved_stderr)
+            if 'fd' in locals():
+                os.close(fd)
         except:
             pass
 

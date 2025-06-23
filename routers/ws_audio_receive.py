@@ -29,8 +29,10 @@ async def websocket_audio_receive(websocket: WebSocket):
         print(f"❌ [AUDIO_RECEIVE] 에러: {e}")
     finally:
         try:
-            stream.stop_stream()
-            stream.close()
-            audio.terminate()
+            if 'stream' in locals() and stream is not None:
+                stream.stop_stream()
+                stream.close()
+            if 'audio' in locals() and audio is not None:
+                audio.terminate()
         except Exception:
             pass
