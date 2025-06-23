@@ -8,7 +8,7 @@ from typing import Optional, List
 logger = logging.getLogger(__name__)
 
 class AudioPlaybackService:
-    def __init__(self, audio_dir: str = "audio"):
+    def __init__(self, audio_dir: str = "sounds"):
         """
         음성 재생 서비스 초기화
         
@@ -27,20 +27,20 @@ class AudioPlaybackService:
         except Exception as e:
             logger.error(f"❌ 오디오 재생 서비스 초기화 실패: {e}")
         
-        # 기본 음성 파일들
+        # 실제 mp3 파일명에 맞게 매핑
         self.default_sounds = {
-            "happy": "happy.wav",
-            "excited": "excited.wav", 
-            "playful": "playful.wav",
-            "curious": "curious.wav",
-            "surprised": "surprised.wav",
-            "laser": "laser.wav",
-            "fire": "fire.wav",
-            "feed": "feed.wav",
-            "move": "move.wav",
-            "bark": "bark.wav",
-            "meow": "meow.wav",
-            "purr": "purr.wav"
+            "happy": "Water Sound.mp3",
+            "excited": "Hello Baby Girl Sound.mp3",
+            "playful": "Laughing Kookaburra Birds Sound.mp3",
+            "curious": "Cat Meow 2 Sound.mp3",
+            "surprised": "Panic Sound.mp3",
+            "laser": "ping sound.mp3",
+            "fire": "Nature Fire Fireworks 08.mp3",
+            "feed": "Catoon Duck.mp3",
+            "move": "Spin Jump Sound.mp3",
+            "bark": "Black Crows Cawing Sound.mp3",
+            "meow": "Cat Meow 2 Sound.mp3",
+            "purr": "Mosquito Buzzing Sound.mp3"
         }
         
         # 오디오 디렉토리 생성

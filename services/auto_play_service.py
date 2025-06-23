@@ -85,9 +85,12 @@ class AutoPlayService:
         logger.info("🎮 자동 놀이 모드 시작")
         
         try:
-            # 시작 음성 재생
+            # 시작 음성 재생 (볼륨 크게)
+            original_volume = audio_playback_service.get_volume()
+            audio_playback_service.set_volume(1.0)
             audio_playback_service.play_excited_sound()
             await asyncio.sleep(1)
+            audio_playback_service.set_volume(original_volume)
             
             # 레이저 켜기
             laser_on()
