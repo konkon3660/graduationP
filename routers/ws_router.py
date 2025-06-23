@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.command_service import handle_command_async
 from services.ultrasonic_service import get_distance_data
+from services.auto_play_service import auto_play_service
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,10 @@ router = APIRouter()
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("🔗 WebSocket 클라이언트 연결됨")
+    
+    # 자동 놀이 서비스에 클라이언트 등록
+    auto_play_service.register_client(websocket)
+    
     try:
         while True:
             # 클라이언트에서 받은 메시지
@@ -79,3 +84,6 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.info("🔌 WebSocket 클라이언트 연결 해제됨")
     except Exception as e:
         logger.error(f"❌ WebSocket 오류: {e}")
+    finally:
+        # 자동 놀이 서비스에서 클라이언트 해제
+        auto_play_service.unregister_client(websocket)

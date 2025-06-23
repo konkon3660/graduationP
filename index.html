@@ -229,41 +229,164 @@
         .food-on .eyelid {
             background-color: #fff2a6;
         }
-        /* 버튼 스타일 */
+        /* 자동 놀이 중 */
         
-        .buttons {
+        .auto-playing {
+            background: radial-gradient(circle, #ff99cc, #ff66aa);
+            animation: autoPlayPulse 2s infinite;
+        }
+        
+        @keyframes autoPlayPulse {
+            0%, 100% { background: radial-gradient(circle, #ff99cc, #ff66aa); }
+            50% { background: radial-gradient(circle, #ff77bb, #ff44aa); }
+        }
+        
+        .auto-playing .eye {
+            width: 17vw;
+            height: 17vw;
+            background: #ffd6e7;
+            animation: autoPlayEye 1.5s infinite;
+        }
+        
+        @keyframes autoPlayEye {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .auto-playing .pupil {
+            width: 9vw;
+            height: 9vw;
+            background: radial-gradient(circle, #ff0066, #cc0044);
+            animation: autoPlayPupil 1s infinite;
+        }
+        
+        @keyframes autoPlayPupil {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        .auto-playing .mouth {
+            width: 15vw;
+            height: 8vw;
+            background: #ff88cc;
+            border-radius: 0 0 70% 70% / 0 0 100% 100%;
+            border-bottom: 4px solid #ff4488;
+            transform: translateY(-0.5vw);
+            animation: autoPlayMouth 1.5s infinite;
+        }
+        
+        @keyframes autoPlayMouth {
+            0%, 100% { transform: translateY(-0.5vw) scale(1); }
+            50% { transform: translateY(-0.5vw) scale(1.05); }
+        }
+        
+        .auto-playing .eyelid {
+            background-color: #ffd6e7;
+        }
+        
+        /* 이동 중 */
+        .moving {
+            background: radial-gradient(circle, #99ccff, #6699ff);
+        }
+        
+        .moving .eye {
+            width: 15vw;
+            height: 15vw;
+            background: #e6f3ff;
+            animation: movingEye 0.8s infinite;
+        }
+        
+        @keyframes movingEye {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(1vw); }
+            75% { transform: translateX(-1vw); }
+        }
+        
+        .moving .pupil {
+            width: 7vw;
+            height: 7vw;
+            background: radial-gradient(circle, #0066cc, #004499);
+        }
+        
+        .moving .mouth {
+            width: 14vw;
+            height: 7vw;
+            background: #66aaff;
+            border-radius: 0 0 50% 50% / 0 0 100% 100%;
+            border-bottom: 3px solid #4488cc;
+            transform: translateY(-0.5vw);
+        }
+        
+        .moving .eyelid {
+            background-color: #e6f3ff;
+        }
+        
+        /* 탐험 중 */
+        .exploring {
+            background: radial-gradient(circle, #99ff99, #66cc66);
+        }
+        
+        .exploring .eye {
+            width: 16vw;
+            height: 16vw;
+            background: #e6ffe6;
+            animation: exploringEye 2s infinite;
+        }
+        
+        @keyframes exploringEye {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg); }
+            75% { transform: rotate(-5deg); }
+        }
+        
+        .exploring .pupil {
+            width: 8vw;
+            height: 8vw;
+            background: radial-gradient(circle, #00cc00, #009900);
+        }
+        
+        .exploring .mouth {
+            width: 15vw;
+            height: 8vw;
+            background: #66dd66;
+            border-radius: 0 0 60% 60% / 0 0 100% 100%;
+            border-bottom: 3px solid #44bb44;
+            transform: translateY(-0.5vw);
+        }
+        
+        .exploring .eyelid {
+            background-color: #e6ffe6;
+        }
+        
+        /* 상태 표시 */
+        .status-indicator {
             position: fixed;
-            bottom: 20px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100vw;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             z-index: 1000;
         }
         
-        button {
-            padding: 10px 16px;
-            background: #fff0f5;
-            border: 2px solid #ff99cc;
-            border-radius: 12px;
-            color: #cc3366;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        .status-indicator.connected {
+            border-left: 4px solid #28a745;
         }
         
-        button:hover {
-            background: #ffccdd;
-            color: white;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+        .status-indicator.disconnected {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .status-indicator.auto-playing {
+            border-left: 4px solid #ffc107;
         }
     </style>
 </head>
 
 <body>
-
     <div id="face" class="face happy">
         <div class="eyes">
             <div class="eye">
@@ -278,20 +401,137 @@
         <div class="mouth"></div>
     </div>
 
-    <div class="buttons">
-        <button onclick="setFace('laser-on')">레이저 ON</button>
-        <button onclick="setFace('ball-fired')">공 발사</button>
-        <button onclick="setFace('food-on')">밥 나옴</button>
-        <button onclick="setFace('happy')">기본 표정</button>
+    <div id="statusIndicator" class="status-indicator disconnected">
+        🔌 연결되지 않음
     </div>
 
     <script>
+        let ws = null;
+        let isConnected = false;
+        let currentState = 'happy';
+        let autoPlayStatus = null;
+        
+        // WebSocket 연결
+        function connectWebSocket() {
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.host;
+                ws = new WebSocket(`${protocol}//${host}/ws/settings`);
+                
+                ws.onopen = function() {
+                    isConnected = true;
+                    updateStatusIndicator('connected', '🔗 연결됨');
+                    console.log('WebSocket 연결됨');
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (e) {
+                        console.error('메시지 파싱 오류:', e);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    isConnected = false;
+                    updateStatusIndicator('disconnected', '🔌 연결 해제됨');
+                    console.log('WebSocket 연결 해제됨');
+                    
+                    // 3초 후 재연결 시도
+                    setTimeout(connectWebSocket, 3000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket 오류:', error);
+                    updateStatusIndicator('disconnected', '❌ 연결 오류');
+                };
+                
+            } catch (error) {
+                console.error('WebSocket 연결 실패:', error);
+            }
+        }
+        
+        // WebSocket 메시지 처리
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'init':
+                    if (data.auto_play_status) {
+                        autoPlayStatus = data.auto_play_status;
+                        updateFaceBasedOnStatus();
+                    }
+                    break;
+                case 'auto_play_status':
+                    autoPlayStatus = data.auto_play_status;
+                    updateFaceBasedOnStatus();
+                    break;
+                case 'auto_play_delay_updated':
+                    console.log('자동 놀이 대기 시간 업데이트:', data.delay);
+                    break;
+                default:
+                    console.log('수신된 메시지:', data.type);
+            }
+        }
+        
+        // 상태 표시 업데이트
+        function updateStatusIndicator(status, message) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = `status-indicator ${status}`;
+            indicator.textContent = message;
+        }
+        
+        // 상태에 따른 표정 업데이트
+        function updateFaceBasedOnStatus() {
+            if (!autoPlayStatus) {
+                setFace('happy');
+                return;
+            }
+            
+            if (autoPlayStatus.is_auto_playing) {
+                setFace('auto-playing');
+                updateStatusIndicator('auto-playing', '🎮 자동 놀이 중');
+            } else if (autoPlayStatus.connected_clients > 0) {
+                setFace('happy');
+                updateStatusIndicator('connected', `🔗 클라이언트 ${autoPlayStatus.connected_clients}명 연결됨`);
+            } else {
+                setFace('happy');
+                updateStatusIndicator('connected', `⏰ ${autoPlayStatus.auto_play_delay}초 후 자동 놀이 예정`);
+            }
+        }
+        
+        // 표정 설정
         function setFace(state) {
             const face = document.getElementById('face');
             face.className = 'face ' + state;
+            currentState = state;
+            console.log('표정 변경:', state);
         }
+        
+        // 주기적으로 자동 놀이 상태 조회
+        function pollAutoPlayStatus() {
+            if (isConnected && ws) {
+                ws.send(JSON.stringify({
+                    type: 'get_auto_play_status'
+                }));
+            }
+        }
+        
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', function() {
+            console.log('로봇 디스플레이 페이지 로드됨');
+            connectWebSocket();
+            
+            // 5초마다 자동 놀이 상태 조회
+            setInterval(pollAutoPlayStatus, 5000);
+        });
+        
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
     </script>
-
 </body>
 
 </html>

@@ -7,12 +7,16 @@ from routers.ws_audio_send import router as audio_send_router
 from routers.ws_settings_router import router as settings_router
 from services.microphone_sender_instance import mic_streamer
 from services.mic_sender_instance import mic_sender
+from services.auto_play_service import auto_play_service
+from services.audio_playback_service import audio_playback_service
 
 app = FastAPI()
 
 # 공유 인스턴스 등록
 app.state.mic_sender = mic_sender
 app.state.mic_streamer = mic_streamer
+app.state.auto_play_service = auto_play_service
+app.state.audio_playback_service = audio_playback_service
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -21,7 +25,7 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 
 @app.get("/")
 async def root():
-    return HTMLResponse(content=open("Exam/test_setting.html", "r", encoding="utf-8").read())
+    return HTMLResponse(content=open("index.html", "r", encoding="utf-8").read())
 
 
 # ✅ 라우터 등록
@@ -69,6 +73,14 @@ async def startup_event():
         print("🍽 급식 스케줄러 시작됨")
     except Exception as e:
         print(f"⚠️ 급식 스케줄러 시작 실패: {e}")
+    
+    # 자동 놀이 서비스 상태 출력
+    auto_play_status = auto_play_service.get_status()
+    print(f"🎮 자동 놀이 서비스 초기화됨 (대기시간: {auto_play_status['auto_play_delay']}초)")
+    
+    # 오디오 재생 서비스 상태 출력
+    audio_status = audio_playback_service.get_status()
+    print(f"🎵 오디오 재생 서비스 초기화됨 (볼륨: {audio_status['volume']})")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -81,6 +93,20 @@ async def shutdown_event():
         print("⏹ 급식 스케줄러 중지됨")
     except Exception as e:
         print(f"⚠️ 급식 스케줄러 중지 실패: {e}")
+    
+    # 자동 놀이 서비스 정리
+    try:
+        auto_play_service.stop_auto_play()
+        print("⏹ 자동 놀이 서비스 중지됨")
+    except Exception as e:
+        print(f"⚠️ 자동 놀이 서비스 중지 실패: {e}")
+    
+    # 오디오 재생 서비스 정리
+    try:
+        audio_playback_service.cleanup()
+        print("⏹ 오디오 재생 서비스 정리됨")
+    except Exception as e:
+        print(f"⚠️ 오디오 재생 서비스 정리 실패: {e}")
     
     # GPIO 정리
     try:
