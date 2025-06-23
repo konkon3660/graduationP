@@ -106,16 +106,17 @@ def cleanup_ultrasonic():
     """초음파 센서 정리 함수 (외부 호출용)"""
     ultrasonic_sensor.cleanup()
 
-if (
-    (command_data.get("type") == "ultrasonic" and command_data.get("action") in ["get_distance", "get_distance_data"])
-):
-    # 거리 데이터 측정 및 전송
-    distance_data = get_distance_data()
-    if distance_data.get("distance") is not None:
-        response_text = f"distance: {distance_data['distance']}"
-    else:
-        error_msg = distance_data.get("error", "측정 실패")
-        response_text = f"error: {error_msg}"
-    await websocket.send_text(response_text)
-    logger.info(f"📏 초음파 센서 데이터 전송: {response_text}")
-    continue 
+# 아래 코드는 async 함수로 이동
+async def handle_ultrasonic_command(command_data, websocket):
+    if (
+        command_data.get("type") == "ultrasonic" and command_data.get("action") in ["get_distance", "get_distance_data"]
+    ):
+        # 거리 데이터 측정 및 전송
+        distance_data = get_distance_data()
+        if distance_data.get("distance") is not None:
+            response_text = f"distance: {distance_data['distance']}"
+        else:
+            error_msg = distance_data.get("error", "측정 실패")
+            response_text = f"error: {error_msg}"
+        await websocket.send_text(response_text)
+        logger.info(f"📏 초음파 센서 데이터 전송: {response_text}") 
