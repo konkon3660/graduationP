@@ -4,11 +4,9 @@ import random
 import logging
 import math
 from typing import Set, Optional
-from fastapi import WebSocket
 from services.laser_service import laser_on, laser_off
 from services.xy_servo import set_xy_servo_angles, reset_to_center
 from services.motor_service import move_forward, move_backward, turn_left, turn_right, stop_motors
-from services.ultrasonic_service import get_distance
 from services.sol_service import fire
 from services.audio_playback_service import audio_playback_service
 
@@ -23,21 +21,17 @@ class AutoPlayService:
             auto_play_delay: 클라이언트 연결 종료 후 자동 놀이 시작까지의 대기 시간 (초)
         """
         self.auto_play_delay = auto_play_delay
-        self.connected_clients: Set[WebSocket] = set()
+        self.connected_clients: Set = set()
         self.auto_play_task: Optional[asyncio.Task] = None
         self.is_auto_playing = False
         self.auto_play_running = False
-        
-        # 장애물 감지 설정
-        self.obstacle_distance = 20  # 장애물 감지 거리 (cm)
-        self.safe_distance = 30      # 안전 거리 (cm)
         
         # 모터 속도 설정
         self.motor_speed = 60        # 모터 속도 (0-100)
         
         logger.info(f"🎮 자동 놀이 서비스 초기화 (대기시간: {auto_play_delay}초)")
     
-    def register_client(self, websocket: WebSocket):
+    def register_client(self, websocket):
         """클라이언트 등록"""
         self.connected_clients.add(websocket)
         logger.info(f"👤 클라이언트 등록됨 (총 {len(self.connected_clients)}명)")
@@ -46,7 +40,7 @@ class AutoPlayService:
         if self.is_auto_playing:
             self.stop_auto_play()
     
-    def unregister_client(self, websocket: WebSocket):
+    def unregister_client(self, websocket):
         """클라이언트 해제"""
         self.connected_clients.discard(websocket)
         logger.info(f"👤 클라이언트 해제됨 (총 {len(self.connected_clients)}명)")
@@ -142,30 +136,13 @@ class AutoPlayService:
         # 패턴 간 잠시 대기
         await asyncio.sleep(random.uniform(2, 5))
     
-    async def _check_obstacle(self) -> bool:
-        """장애물 감지"""
-        try:
-            distance = get_distance()
-            if distance is not None and distance < self.obstacle_distance:
-                logger.warning(f"⚠️ 장애물 감지: {distance}cm")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"❌ 장애물 감지 실패: {e}")
-            return False
-    
     async def _safe_move_forward(self, duration: float = 2.0):
-        """안전한 전진"""
+        """안전한 전진 (제한된 시간과 거리)"""
         try:
-            # 장애물 확인
-            if await self._check_obstacle():
-                logger.info("🛑 장애물이 있어 전진 중단")
-                return False
-            
             # 이동 음성 재생
             audio_playback_service.play_move_sound()
             
-            # 전진
+            # 전진 (짧은 시간으로 제한)
             move_forward(self.motor_speed)
             await asyncio.sleep(duration)
             stop_motors()
@@ -237,18 +214,20 @@ class AutoPlayService:
         # 이동 음성 재생
         audio_playback_service.play_move_sound()
         
-        # 랜덤한 이동 패턴
+        # 랜덤한 이동 패턴 (제한된 시간과 거리)
         for _ in range(random.randint(3, 6)):
             if not self.auto_play_running:
                 break
             
-            # 장애물 확인
-            if await self._check_obstacle():
-                # 장애물이 있으면 회전
-                await self._safe_turn()
+            # 랜덤하게 전진 또는 회전
+            action = random.choice(["forward", "turn"])
+            
+            if action == "forward":
+                # 짧은 거리만 전진 (안전을 위해)
+                await self._safe_move_forward(random.uniform(0.5, 1.5))
             else:
-                # 안전하면 전진
-                await self._safe_move_forward(random.uniform(1.0, 3.0))
+                # 회전
+                await self._safe_turn()
             
             # 잠시 대기
             await asyncio.sleep(random.uniform(0.5, 1.5))
@@ -279,7 +258,7 @@ class AutoPlayService:
         # 탐험 음성 재생
         audio_playback_service.play_curious_sound()
         
-        # 주변 탐험
+        # 주변 탐험 (제한된 이동)
         for _ in range(random.randint(4, 8)):
             if not self.auto_play_running:
                 break
@@ -288,8 +267,7 @@ class AutoPlayService:
             await self._safe_turn()
             
             # 짧은 거리 전진
-            if not await self._check_obstacle():
-                await self._safe_move_forward(random.uniform(0.5, 1.5))
+            await self._safe_move_forward(random.uniform(0.3, 0.8))
             
             # 잠시 대기
             await asyncio.sleep(random.uniform(0.3, 0.8))
@@ -523,8 +501,6 @@ class AutoPlayService:
             "is_auto_playing": self.is_auto_playing,
             "auto_play_delay": self.auto_play_delay,
             "auto_play_running": self.auto_play_running,
-            "obstacle_distance": self.obstacle_distance,
-            "safe_distance": self.safe_distance,
             "motor_speed": self.motor_speed
         }
     
@@ -532,11 +508,6 @@ class AutoPlayService:
         """자동 놀이 대기 시간 설정"""
         self.auto_play_delay = delay
         logger.info(f"⏰ 자동 놀이 대기 시간 변경: {delay}초")
-    
-    def set_obstacle_distance(self, distance: int):
-        """장애물 감지 거리 설정"""
-        self.obstacle_distance = distance
-        logger.info(f"📏 장애물 감지 거리 변경: {distance}cm")
     
     def set_motor_speed(self, speed: int):
         """모터 속도 설정"""

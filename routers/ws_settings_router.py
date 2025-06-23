@@ -1,259 +1,153 @@
 import json
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from services.settings_service import settings_service
-from services.feed_scheduler import feed_scheduler
+from fastapi import WebSocket, WebSocketDisconnect
 from services.auto_play_service import auto_play_service
 from services.audio_playback_service import audio_playback_service
-from services.ultrasonic_service import get_distance
+import asyncio
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
-
-@router.websocket("/ws/settings")
-async def settings_websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    logger.info("🔗 설정 WebSocket 클라이언트 연결됨")
+class SettingsWebSocketRouter:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
     
-    # 자동 놀이 서비스에 클라이언트 등록
-    auto_play_service.register_client(websocket)
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        logger.info(f"🔧 설정 웹소켓 연결됨 (총 {len(self.active_connections)}개)")
+        
+        # 현재 상태 전송
+        await self.send_status(websocket)
     
-    try:
-        # 초기 설정 전송
-        initial_settings = settings_service.get_settings()
-        scheduler_status = feed_scheduler.get_status()
-        auto_play_status = auto_play_service.get_status()
-        audio_status = audio_playback_service.get_status()
-        
-        response = {
-            "type": "init",
-            "settings": initial_settings,
-            "scheduler_status": scheduler_status,
-            "auto_play_status": auto_play_status,
-            "audio_status": audio_status
-        }
-        await websocket.send_text(json.dumps(response, ensure_ascii=False))
-        
-        while True:
-            # 클라이언트에서 받은 JSON 메시지
-            message = await websocket.receive_text()
-            
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+        logger.info(f"🔧 설정 웹소켓 연결 해제됨 (총 {len(self.active_connections)}개)")
+    
+    async def send_status(self, websocket: WebSocket):
+        """현재 상태 전송"""
+        try:
+            status = {
+                "type": "status",
+                "auto_play": auto_play_service.get_status(),
+                "audio": {
+                    "volume": audio_playback_service.get_volume(),
+                    "available_sounds": audio_playback_service.get_available_sounds()
+                }
+            }
+            await websocket.send_text(json.dumps(status))
+        except Exception as e:
+            logger.error(f"❌ 상태 전송 실패: {e}")
+    
+    async def broadcast_status(self):
+        """모든 연결에 상태 브로드캐스트"""
+        for connection in self.active_connections:
             try:
-                data = json.loads(message)
-                message_type = data.get("type", "")
-                
-                if message_type == "update_settings":
-                    # 설정 업데이트
-                    new_settings = data.get("settings", {})
-                    try:
-                        updated_settings = settings_service.update_settings(new_settings)
-                        
-                        # 스케줄러 리셋 (설정 변경 시)
-                        feed_scheduler.reset_schedule()
-                        
-                        response = {
-                            "type": "settings_updated",
-                            "settings": updated_settings,
-                            "success": True
-                        }
-                        await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                        
-                        logger.info(f"🔧 설정 업데이트됨: {updated_settings}")
-                        
-                    except ValueError as e:
-                        # 유효성 검사 실패
-                        response = {
-                            "type": "error",
-                            "message": str(e),
-                            "success": False
-                        }
-                        await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                        logger.warning(f"⚠️ 설정 업데이트 실패: {e}")
-                
-                elif message_type == "get_settings":
-                    # 현재 설정 요청
-                    current_settings = settings_service.get_settings()
-                    scheduler_status = feed_scheduler.get_status()
-                    auto_play_status = auto_play_service.get_status()
-                    audio_status = audio_playback_service.get_status()
-                    
-                    response = {
-                        "type": "settings",
-                        "settings": current_settings,
-                        "scheduler_status": scheduler_status,
-                        "auto_play_status": auto_play_status,
-                        "audio_status": audio_status
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                
-                elif message_type == "start_scheduler":
-                    # 스케줄러 시작
-                    await feed_scheduler.start()
-                    scheduler_status = feed_scheduler.get_status()
-                    
-                    response = {
-                        "type": "scheduler_started",
-                        "scheduler_status": scheduler_status,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info("🚀 스케줄러 시작됨")
-                
-                elif message_type == "stop_scheduler":
-                    # 스케줄러 중지
-                    await feed_scheduler.stop()
-                    scheduler_status = feed_scheduler.get_status()
-                    
-                    response = {
-                        "type": "scheduler_stopped",
-                        "scheduler_status": scheduler_status,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info("⏹ 스케줄러 중지됨")
-                
-                elif message_type == "manual_feed":
-                    # 수동 급식 실행
-                    amount = data.get("amount", 1)
-                    from services.feed_service import feed_once
-                    
-                    for i in range(amount):
-                        feed_once()
-                        if i < amount - 1:
-                            import asyncio
-                            await asyncio.sleep(1)
-                    
-                    response = {
-                        "type": "manual_feed_completed",
-                        "amount": amount,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"🍽 수동 급식 완료: {amount}회")
-                
-                elif message_type == "set_auto_play_delay":
-                    # 자동 놀이 대기 시간 설정
-                    delay = data.get("delay", 70)
-                    auto_play_service.set_auto_play_delay(delay)
-                    
-                    response = {
-                        "type": "auto_play_delay_updated",
-                        "delay": delay,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"⏰ 자동 놀이 대기 시간 설정: {delay}초")
-                
-                elif message_type == "get_auto_play_status":
-                    # 자동 놀이 상태 조회
-                    auto_play_status = auto_play_service.get_status()
-                    
-                    response = {
-                        "type": "auto_play_status",
-                        "auto_play_status": auto_play_status,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                
-                elif message_type == "set_obstacle_distance":
-                    # 장애물 감지 거리 설정
-                    distance = data.get("distance", 20)
-                    auto_play_service.set_obstacle_distance(distance)
-                    
-                    response = {
-                        "type": "obstacle_distance_updated",
-                        "distance": distance,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"📏 장애물 감지 거리 설정: {distance}cm")
-                
-                elif message_type == "set_motor_speed":
-                    # 모터 속도 설정
-                    speed = data.get("speed", 60)
-                    auto_play_service.set_motor_speed(speed)
-                    
-                    response = {
-                        "type": "motor_speed_updated",
-                        "speed": speed,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"🚗 모터 속도 설정: {speed}")
-                
-                elif message_type == "set_audio_volume":
-                    # 오디오 볼륨 설정
-                    volume = data.get("volume", 0.7)
-                    audio_playback_service.set_volume(volume)
-                    
-                    response = {
-                        "type": "audio_volume_updated",
-                        "volume": volume,
-                        "success": True
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"🔊 오디오 볼륨 설정: {volume}")
-                
-                elif message_type == "play_sound":
-                    # 음성 재생
-                    sound = data.get("sound", "happy")
-                    success = audio_playback_service.play_sound(sound)
-                    
-                    response = {
-                        "type": "sound_played",
-                        "sound": sound,
-                        "success": success
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"🎵 음성 재생: {sound}")
-                
-                elif message_type == "test_obstacle_detection":
-                    # 장애물 감지 테스트
-                    distance = get_distance()
-                    
-                    response = {
-                        "type": "obstacle_detection_result",
-                        "distance": distance,
-                        "success": distance is not None
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.info(f"📏 장애물 감지 테스트: {distance}cm")
-                
-                else:
-                    # 알 수 없는 메시지 타입
-                    response = {
-                        "type": "error",
-                        "message": f"알 수 없는 메시지 타입: {message_type}",
-                        "success": False
-                    }
-                    await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                    logger.warning(f"⚠️ 알 수 없는 메시지 타입: {message_type}")
-                
-            except json.JSONDecodeError:
-                # JSON 파싱 실패
-                response = {
-                    "type": "error",
-                    "message": "잘못된 JSON 형식입니다",
-                    "success": False
-                }
-                await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                logger.warning("⚠️ 잘못된 JSON 형식")
-            
+                await self.send_status(connection)
             except Exception as e:
-                # 기타 오류
-                response = {
-                    "type": "error",
-                    "message": f"서버 오류: {str(e)}",
-                    "success": False
-                }
-                await websocket.send_text(json.dumps(response, ensure_ascii=False))
-                logger.error(f"❌ WebSocket 처리 오류: {e}")
+                logger.error(f"❌ 브로드캐스트 실패: {e}")
     
-    except WebSocketDisconnect:
-        logger.info("🔌 설정 WebSocket 클라이언트 연결 해제됨")
-    except Exception as e:
-        logger.error(f"❌ 설정 WebSocket 오류: {e}")
-    finally:
-        # 자동 놀이 서비스에서 클라이언트 해제
-        auto_play_service.unregister_client(websocket) 
+    async def handle_message(self, websocket: WebSocket, message: str):
+        """메시지 처리"""
+        try:
+            data = json.loads(message)
+            command = data.get("command")
+            
+            logger.info(f"🔧 설정 명령 수신: {command}")
+            
+            if command == "get_status":
+                await self.send_status(websocket)
+                
+            elif command == "set_auto_play_delay":
+                delay = data.get("delay", 70)
+                auto_play_service.set_auto_play_delay(delay)
+                await self.broadcast_status()
+                
+            elif command == "set_motor_speed":
+                speed = data.get("speed", 60)
+                auto_play_service.set_motor_speed(speed)
+                await self.broadcast_status()
+                
+            elif command == "set_audio_volume":
+                volume = data.get("volume", 0.5)
+                audio_playback_service.set_volume(volume)
+                await self.broadcast_status()
+                
+            elif command == "play_sound":
+                sound_type = data.get("sound_type", "excited")
+                audio_playback_service.play_sound(sound_type)
+                
+            elif command == "test_motor_forward":
+                from services.motor_service import move_forward, stop_motors
+                speed = data.get("speed", 60)
+                duration = data.get("duration", 2.0)
+                
+                logger.info(f"🚗 모터 전진 테스트 (속도: {speed}, 시간: {duration}초)")
+                move_forward(speed)
+                await asyncio.sleep(duration)
+                stop_motors()
+                
+            elif command == "test_motor_turn":
+                from services.motor_service import turn_left, turn_right, stop_motors
+                direction = data.get("direction", "left")
+                speed = data.get("speed", 60)
+                duration = data.get("duration", 1.0)
+                
+                logger.info(f"🔄 모터 회전 테스트 (방향: {direction}, 속도: {speed}, 시간: {duration}초)")
+                if direction == "left":
+                    turn_left(speed)
+                else:
+                    turn_right(speed)
+                await asyncio.sleep(duration)
+                stop_motors()
+                
+            elif command == "test_solenoid":
+                from services.sol_service import fire
+                count = data.get("count", 1)
+                
+                logger.info(f"🔥 솔레노이드 테스트 ({count}회)")
+                for i in range(count):
+                    fire()
+                    await asyncio.sleep(0.5)
+                
+            elif command == "test_laser":
+                from services.laser_service import laser_on, laser_off
+                duration = data.get("duration", 3.0)
+                
+                logger.info(f"🔴 레이저 테스트 ({duration}초)")
+                laser_on()
+                await asyncio.sleep(duration)
+                laser_off()
+                
+            elif command == "test_servo":
+                from services.xy_servo import set_xy_servo_angles, reset_to_center
+                x = data.get("x", 90)
+                y = data.get("y", 90)
+                duration = data.get("duration", 2.0)
+                
+                logger.info(f"🎯 서보 테스트 (x: {x}, y: {y}, 시간: {duration}초)")
+                set_xy_servo_angles(x, y)
+                await asyncio.sleep(duration)
+                reset_to_center()
+                
+            else:
+                logger.warning(f"⚠️ 알 수 없는 명령: {command}")
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": f"알 수 없는 명령: {command}"
+                }))
+                
+        except json.JSONDecodeError:
+            logger.error("❌ JSON 파싱 오류")
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "잘못된 JSON 형식"
+            }))
+        except Exception as e:
+            logger.error(f"❌ 메시지 처리 오류: {e}")
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": f"처리 오류: {str(e)}"
+            }))
+
+# 전역 인스턴스
+settings_router = SettingsWebSocketRouter() 
