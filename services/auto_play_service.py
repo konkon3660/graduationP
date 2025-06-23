@@ -123,7 +123,6 @@ class AutoPlayService:
         logger.info("⏹ 자동 놀이 중지 요청됨")
     
     async def _play_advanced_pattern(self):
-        """고급 놀이 패턴 실행"""
         patterns = [
             self._laser_play_pattern,
             self._mobile_play_pattern,
@@ -131,12 +130,13 @@ class AutoPlayService:
             self._exploration_pattern,
             self._dance_pattern
         ]
-        
-        # 랜덤하게 패턴 선택
         pattern = random.choice(patterns)
+        # --- 효과음 재생 및 딜레이 추가 ---
+        next_sound = audio_playback_service.get_next_sound()
+        audio_playback_service.play_sound(next_sound)
+        await asyncio.sleep(random.uniform(3, 6))
+        # --- 기존 패턴 실행 (패턴 내 효과음 재생 코드 제거 필요) ---
         await pattern()
-        
-        # 패턴 간 잠시 대기
         await asyncio.sleep(random.uniform(2, 5))
     
     async def _safe_move_forward(self, duration: float = 2.0):
@@ -185,12 +185,7 @@ class AutoPlayService:
             return False
     
     async def _laser_play_pattern(self):
-        """레이저 놀이 패턴"""
         logger.info("🎯 레이저 놀이 패턴 시작")
-        
-        # 레이저 소리 재생
-        audio_playback_service.play_laser_sound()
-        
         patterns = [
             self._circle_pattern,
             self._figure_eight_pattern,
@@ -200,8 +195,6 @@ class AutoPlayService:
             self._zigzag_pattern,
             self._heart_pattern
         ]
-        
-        # 2-3개의 패턴을 연속으로 실행
         num_patterns = random.randint(2, 3)
         for _ in range(num_patterns):
             if not self.auto_play_running:
@@ -211,91 +204,46 @@ class AutoPlayService:
             await asyncio.sleep(1)
     
     async def _mobile_play_pattern(self):
-        """이동 놀이 패턴"""
         logger.info("🚗 이동 놀이 패턴 시작")
-        
-        # 이동 음성 재생
-        audio_playback_service.play_move_sound()
-        
-        # 랜덤한 이동 패턴 (제한된 시간과 거리)
         for _ in range(random.randint(3, 6)):
             if not self.auto_play_running:
                 break
-            
-            # 랜덤하게 전진 또는 회전
             action = random.choice(["forward", "turn"])
-            
             if action == "forward":
-                # 짧은 거리만 전진 (안전을 위해)
                 await self._safe_move_forward(random.uniform(0.5, 1.5))
             else:
-                # 회전
                 await self._safe_turn()
-            
-            # 잠시 대기
             await asyncio.sleep(random.uniform(0.5, 1.5))
     
     async def _solenoid_play_pattern(self):
-        """솔레노이드 놀이 패턴"""
         logger.info("🔥 솔레노이드 놀이 패턴 시작")
-        
-        # 발사 소리 재생
-        audio_playback_service.play_fire_sound()
-        
-        # 2-4번 발사
         for i in range(random.randint(2, 4)):
             if not self.auto_play_running:
                 break
-            
-            # 발사
             fire()
             logger.info(f"🔥 솔레노이드 발사 {i+1}회")
-            
-            # 발사 후 잠시 대기
             await asyncio.sleep(random.uniform(1.0, 2.0))
     
     async def _exploration_pattern(self):
-        """탐험 패턴"""
         logger.info("🔍 탐험 패턴 시작")
-        
-        # 탐험 음성 재생
-        audio_playback_service.play_curious_sound()
-        
-        # 주변 탐험 (제한된 이동)
         for _ in range(random.randint(4, 8)):
             if not self.auto_play_running:
                 break
-            
-            # 랜덤한 방향으로 회전
             await self._safe_turn()
-            
-            # 짧은 거리 전진
             await self._safe_move_forward(random.uniform(0.3, 0.8))
-            
-            # 잠시 대기
             await asyncio.sleep(random.uniform(0.3, 0.8))
     
     async def _dance_pattern(self):
-        """춤 패턴"""
         logger.info("💃 춤 패턴 시작")
-        
-        # 춤 음성 재생
-        audio_playback_service.play_playful_sound()
-        
-        # 제자리에서 회전
         for _ in range(random.randint(2, 4)):
             if not self.auto_play_running:
                 break
-            
-            # 좌우 회전
             turn_left(self.motor_speed)
             await asyncio.sleep(1.0)
             stop_motors()
-            
             turn_right(self.motor_speed)
             await asyncio.sleep(1.0)
             stop_motors()
-            
             await asyncio.sleep(0.5)
     
     # 기존 레이저 패턴들 (수정 없음)

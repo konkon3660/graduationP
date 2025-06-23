@@ -4,6 +4,7 @@ import os
 import logging
 import asyncio
 from typing import Optional, List
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class AudioPlaybackService:
         self.current_sound: Optional[pygame.mixer.Sound] = None
         self.is_playing = False
         self.volume = 0.7  # 기본 볼륨 (0.0 ~ 1.0)
+        self.sound_queue = []  # 다음에 재생할 음성 큐
+        self.sound_history = set()  # 이미 재생한 음성 파일
         
         # pygame 초기화
         try:
@@ -203,6 +206,25 @@ class AudioPlaybackService:
         except Exception as e:
             logger.error(f"❌ 음성 파일 목록 조회 실패: {e}")
             return []
+    
+    def get_next_sound(self) -> str:
+        """
+        다음에 재생할 음성 파일명을 반환한다.
+        모든 파일을 1회씩 재생한 후에는 셔플 반복한다.
+        """
+        available = self.get_available_sounds()
+        # 아직 한 번도 재생하지 않은 파일 우선
+        not_played = [f for f in available if f not in self.sound_history]
+        if not_played:
+            next_sound = not_played[0]
+            self.sound_history.add(next_sound)
+            return next_sound
+        # 모두 재생했다면 큐에서 꺼내기, 큐가 비면 셔플
+        if not self.sound_queue:
+            self.sound_queue = available[:]
+            random.shuffle(self.sound_queue)
+        next_sound = self.sound_queue.pop(0)
+        return next_sound
     
     def get_status(self):
         """서비스 상태 조회"""

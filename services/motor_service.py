@@ -16,7 +16,7 @@ _initialized = False
 
 # 기본 설정
 DEFAULT_SPEED = 70
-PWM_FREQUENCY = 8000
+PWM_FREQUENCY = 1000
 
 def init_motor():
     """모터 핀 및 PWM 설정 (최초 1회만 호출)"""
