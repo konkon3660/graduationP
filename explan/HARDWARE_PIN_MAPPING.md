@@ -8,7 +8,7 @@
 | **서보모터 2개 (레이저용 X/Y축)** | GPIO 19, 13 | PIN 35, 33 | PWM 출력 (레이저 방향 제어) | ✅ 연결됨 |
 | **모터 드라이버 (SMG-A)** | GPIO 23, 24 | PIN 16, 18 | IN1, IN2 (모터 A 방향 제어) | ✅ 연결됨 |
 | | GPIO 27, 22 | PIN 13, 15 | IN3, IN4 (모터 B 방향 제어) | ✅ 연결됨 |
-| | GPIO 12, 26 | PIN 32, 37 | ENA, ENB (PWM 속도 제어용) | ✅ 연결됨 |
+| | GPIO 26, 21 | PIN 37, 40 | ENA, ENB (PWM 속도 제어용, 소프트웨어 PWM) | ✅ 연결됨 |
 | **레이저 포인터** | GPIO 17 | PIN 11 | 단순 ON/OFF | ✅ 연결됨 |
 | **릴레이 (공 발사용)** | GPIO 5 | PIN 29 | 릴레이 제어 | ✅ 연결됨 |
 | **초음파 센서** | GPIO 6, 7 | PIN 31, 26 | TRIG, ECHO (거리 측정) | ✅ 연결됨 |
@@ -20,8 +20,8 @@
 ### 1. 모터 드라이버 (DC 모터 2개)
 ```python
 # services/motor_service.py
-ENA, INT1, INT2 = 12, 23, 24  # 우측 모터 (ENA=PIN32, IN1=PIN16, IN2=PIN18)
-ENB, INT3, INT4 = 19, 27, 22  # 좌측 모터 (ENB=PIN35, IN3=PIN13, IN4=PIN15)
+ENA, INT1, INT2 = 26, 23, 24  # 우측 모터 (ENA=PIN37, IN1=PIN16, IN2=PIN18)
+ENB, INT3, INT4 = 21, 27, 22  # 좌측 모터 (ENB=PIN40, IN3=PIN13, IN4=PIN15)
 ```
 
 ### 2. 급식용 서보모터
@@ -133,7 +133,8 @@ python test_laser.py
 - **릴레이**: 5V 릴레이 모듈 사용
 
 ### 2. 핀 충돌 방지
-- **PWM 핀**: GPIO 12, 13, 18, 19 사용
+- **PWM 핀**: GPIO 12, 13, 18, 19 (서보/레이저 전용, 모터 드라이버에는 사용하지 않음)
+- **모터 드라이버 PWM**: GPIO 26, 21 (소프트웨어 PWM)
 - **일반 GPIO**: 나머지 핀들
 - **중복 사용 금지**: 하나의 핀에 여러 부품 연결 금지
 
