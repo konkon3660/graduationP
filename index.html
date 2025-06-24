@@ -416,7 +416,7 @@
             try {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const host = window.location.host;
-                ws = new WebSocket(`${protocol}//${host}/ws/settings`);
+                ws = new WebSocket(`${protocol}//${host}/ws`);
                 
                 ws.onopen = function() {
                     isConnected = true;

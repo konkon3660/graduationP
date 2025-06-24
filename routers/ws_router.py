@@ -18,6 +18,18 @@ async def websocket_endpoint(websocket: WebSocket):
     # 자동 놀이 서비스에 클라이언트 등록
     auto_play_service.register_client(websocket)
     
+    # 연결 시 현재 상태 정보 전송
+    try:
+        status_info = {
+            "type": "init",
+            "auto_play_status": auto_play_service.get_status(),
+            "message": "클라이언트 연결됨"
+        }
+        await websocket.send_text(json.dumps(status_info, ensure_ascii=False))
+        logger.info("📊 초기 상태 정보 전송됨")
+    except Exception as e:
+        logger.error(f"❌ 초기 상태 전송 실패: {e}")
+    
     try:
         while True:
             # 클라이언트에서 받은 메시지
@@ -27,6 +39,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 # JSON 형식인지 확인
                 command_data = json.loads(message)
                 logger.info(f"📨 JSON 명령 수신: {command_data}")
+                
+                # 자동 놀이 상태 조회 요청인지 확인
+                if command_data.get("type") == "get_auto_play_status":
+                    status_info = {
+                        "type": "auto_play_status",
+                        "auto_play_status": auto_play_service.get_status()
+                    }
+                    await websocket.send_text(json.dumps(status_info, ensure_ascii=False))
+                    logger.info("📊 자동 놀이 상태 정보 전송됨")
+                    continue
                 
                 # 초음파 센서 데이터 요청인지 확인
                 if command_data.get("type") == "ultrasonic" and command_data.get("action") == "get_distance_data":
