@@ -38,8 +38,6 @@ def feed_multiple(amount: int):
     print(f"🍽 급식 시작: {amount}회")
     for i in range(amount):
         feed_once()
-        if i < amount - 1:  # 마지막이 아니면 잠시 대기
-            time.sleep(1)
     print(f"✅ 급식 완료: {amount}회")
 
 def cleanup():

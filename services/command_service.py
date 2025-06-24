@@ -195,8 +195,16 @@ class CommandHandler:
     def handle_feed_now(self):
         """즉시 급식"""
         try:
-            feed_once()
-            logger.info("🍚 즉시 급식 실행")
+            # 설정에서 급식 횟수 가져오기
+            from services.settings_service import settings_service
+            amount = settings_service.get_setting("amount")
+            
+            if amount == 1:
+                feed_once()
+                logger.info("🍚 즉시 급식 실행 (1회)")
+            else:
+                feed_multiple(amount)
+                logger.info(f"🍚 즉시 급식 실행 ({amount}회)")
             return True
         except Exception as e:
             logger.error(f"❌ 즉시 급식 실패: {e}")
