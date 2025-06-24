@@ -380,3 +380,23 @@ routers/
 
 test_json_commands.html        # JSON 명령 테스트 페이지
 ```
+
+# 📡 JSON 명령어 가이드
+
+## 주요 명령
+- 전진, 후진, 좌회전, 우회전, 정지 등 모터 제어
+- 레이저, 오디오, 급식 등 기타 장치 제어
+
+## 모터 관련 명령
+- 모든 모터 명령은 속도 조절 없이 항상 최대 속도로 동작합니다.
+
+### 예시
+```json
+{"command": "move_forward"}
+{"command": "move_backward"}
+{"command": "turn_left"}
+{"command": "turn_right"}
+{"command": "stop_motors"}
+```
+
+> **참고:** L298N 드라이버의 ENA/ENB는 점퍼로 5V에 연결되어 있어 소프트웨어로 속도(PWM) 제어가 불가능합니다.
