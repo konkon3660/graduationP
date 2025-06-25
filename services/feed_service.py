@@ -1,47 +1,151 @@
 # services/feed_service.py
 
 import RPi.GPIO as GPIO
-import time
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from services.settings_service import settings_service
+
+logger = logging.getLogger(__name__)
 
 SERVO_PIN = 18  # 급식용 서보모터 (PIN 12, hardware PWM)
 PWM_FREQUENCY = 50
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(SERVO_PIN, GPIO.OUT)
-pwm = GPIO.PWM(SERVO_PIN, PWM_FREQUENCY)
-pwm.start(0)
+# 전역 변수
+pwm = None
+_initialized = False
+_gpio_initialized = False
+
+def _init_gpio():
+    """GPIO 초기화 (한 번만 실행)"""
+    global _gpio_initialized
+    if _gpio_initialized:
+        return True
+        
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)  # GPIO 경고 무시
+        _gpio_initialized = True
+        logger.debug("급식 서보 GPIO 모드 설정 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 서보 GPIO 초기화 실패: {e}")
+        return False
+
+def init_feed_servo():
+    """급식 서보모터 초기화"""
+    global pwm, _initialized
+    
+    if _initialized:
+        return True
+        
+    try:
+        if not _init_gpio():
+            return False
+            
+        GPIO.setup(SERVO_PIN, GPIO.OUT)
+        pwm = GPIO.PWM(SERVO_PIN, PWM_FREQUENCY)
+        pwm.start(0)
+        
+        _initialized = True
+        logger.info("✅ 급식 서보모터 초기화 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 서보모터 초기화 실패: {e}")
+        cleanup()
+        return False
 
 def set_angle(angle):
-    duty = angle / 18 + 2
-    if duty < 2 or duty > 12:
-        print(f"⚠️ 듀티사이클 {duty}%는 비정상입니다.")
-        return
-    GPIO.output(SERVO_PIN, True)
-    pwm.ChangeDutyCycle(duty)
-    time.sleep(0.5)
-    GPIO.output(SERVO_PIN, False)
-    pwm.ChangeDutyCycle(0)
+    """서보모터 각도 설정 (비동기 안전 버전)"""
+    if not init_feed_servo():
+        return False
+        
+    try:
+        if pwm is None:
+            logger.error("PWM 객체가 초기화되지 않음")
+            return False
+            
+        duty = angle / 18 + 2
+        if duty < 2 or duty > 12:
+            logger.warning(f"⚠️ 듀티사이클 {duty}%는 비정상입니다.")
+            return False
+            
+        GPIO.output(SERVO_PIN, True)
+        pwm.ChangeDutyCycle(duty)
+        # time.sleep 제거 - 블로킹 방지
+        logger.debug(f"급식 서보 각도 설정: {angle}도")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 서보 각도 설정 실패: {e}")
+        return False
 
-def feed_once():
-    """한 번의 급식을 실행합니다."""
-    print("🍽 서보모터 동작")
-    set_angle(120)
-    time.sleep(1)
-    set_angle(180)
-    time.sleep(0.5)
+async def set_angle_async(angle):
+    """서보모터 각도 설정 (비동기 버전)"""
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, set_angle, angle)
+        
+        # 서보 안정화를 위한 짧은 대기
+        await asyncio.sleep(0.1)
+        
+        return result
+    except Exception as e:
+        logger.error(f"❌ 비동기 급식 서보 제어 실패: {e}")
+        return False
 
-def feed_multiple(amount: int):
-    """지정된 횟수만큼 급식을 실행합니다."""
-    print(f"🍽 급식 시작: {amount}회")
-    for i in range(amount):
-        feed_once()
-    print(f"✅ 급식 완료: {amount}회")
+async def feed_once():
+    """한 번의 급식을 실행합니다. (비동기 버전)"""
+    try:
+        logger.info("🍽 급식 서보모터 동작 시작")
+        
+        # 비동기로 각도 설정
+        await set_angle_async(120)
+        await asyncio.sleep(0.5)  # 비동기 대기
+        await set_angle_async(180)
+        await asyncio.sleep(0.3)  # 비동기 대기
+        
+        logger.info("✅ 급식 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 실행 실패: {e}")
+        return False
+
+async def feed_multiple(count: int):
+    """여러 번의 급식을 실행합니다."""
+    try:
+        logger.info(f"🍽 {count}회 급식 시작")
+        
+        for i in range(count):
+            if i > 0:
+                await asyncio.sleep(1)  # 급식 간 대기
+            await feed_once()
+            
+        logger.info(f"✅ {count}회 급식 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 다중 급식 실행 실패: {e}")
+        return False
 
 def cleanup():
-    """GPIO 정리를 수행합니다."""
-    pwm.stop()
-    GPIO.cleanup()
-    print("🧹 GPIO 정리 완료")
+    """급식 서보모터 리소스 정리"""
+    global pwm, _initialized
+    
+    try:
+        if pwm:
+            pwm.stop()
+            pwm = None
+        _initialized = False
+        logger.info("🧹 급식 서보모터 정리 완료")
+    except Exception as e:
+        logger.error(f"⚠️ 급식 서보모터 정리 중 오류: {e}")
+
+# 기존 동기 함수들 (하위 호환성 유지)
+def feed_once_sync():
+    """한 번의 급식을 실행합니다. (동기 버전 - 하위 호환성)"""
+    print("🍽 서보모터 동작")
+    set_angle(120)
+    # 동기 대기는 최소화
+    import time
+    time.sleep(0.1)
+    set_angle(180)
+    time.sleep(0.1)

@@ -356,7 +356,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     async def _figure_eight_pattern(self):
@@ -378,7 +379,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
         
         # 두 번째 원 (아래쪽)
@@ -393,7 +395,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     async def _random_movement_pattern(self):
@@ -420,7 +423,8 @@ class AutoPlayService:
                 x = current_x + (target_x - current_x) * progress
                 y = current_y + (target_y - current_y) * progress
                 
-                set_xy_servo_angles(int(x), int(y))
+                # 비동기 서보 제어 사용
+                await set_xy_servo_angles(int(x), int(y))
                 await asyncio.sleep(0.1)
             
             current_x, current_y = target_x, target_y
@@ -443,7 +447,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     async def _spiral_pattern(self):
@@ -466,7 +471,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     async def _zigzag_pattern(self):
@@ -487,7 +493,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     async def _heart_pattern(self):
@@ -514,7 +521,8 @@ class AutoPlayService:
             x = max(0, min(180, x))
             y = max(0, min(180, y))
             
-            set_xy_servo_angles(int(x), int(y))
+            # 비동기 서보 제어 사용
+            await set_xy_servo_angles(int(x), int(y))
             await asyncio.sleep(0.05)
     
     def get_status(self):

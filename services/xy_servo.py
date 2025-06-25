@@ -1,7 +1,8 @@
 # services/xy_servo.py - X축, Y축 서보모터 제어 서비스
 import RPi.GPIO as GPIO
-import time
+import asyncio
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +12,30 @@ Y_SERVO_PIN = 13  # Y축 서보모터 (상하)
 PWM_FREQUENCY = 50
 
 # 전역 변수
-x_pwm = None
-y_pwm = None
+x_pwm: Optional[GPIO.PWM] = None
+y_pwm: Optional[GPIO.PWM] = None
 _initialized = False
+_gpio_initialized = False
 
 # 현재 각도 추적
 current_x_angle = 90
 current_y_angle = 90
+
+def _init_gpio():
+    """GPIO 초기화 (한 번만 실행)"""
+    global _gpio_initialized
+    if _gpio_initialized:
+        return True
+        
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)  # GPIO 경고 무시
+        _gpio_initialized = True
+        logger.debug("GPIO 모드 설정 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ GPIO 초기화 실패: {e}")
+        return False
 
 def init_xy_servo():
     """X축, Y축 서보 모터 초기화"""
@@ -27,7 +45,10 @@ def init_xy_servo():
         return True
         
     try:
-        GPIO.setmode(GPIO.BCM)
+        if not _init_gpio():
+            return False
+            
+        # 핀 설정
         GPIO.setup(X_SERVO_PIN, GPIO.OUT)
         GPIO.setup(Y_SERVO_PIN, GPIO.OUT)
         
@@ -44,11 +65,13 @@ def init_xy_servo():
         return True
     except Exception as e:
         logger.error(f"❌ 서보모터 초기화 실패: {e}")
+        # 실패 시 정리
+        cleanup()
         return False
 
 def set_servo_angle(angle: int, axis: str = "x"):
     """
-    서보 모터 각도 설정
+    서보 모터 각도 설정 (비동기 안전 버전)
     
     Args:
         angle: 0~180도 범위의 각도
@@ -72,24 +95,26 @@ def set_servo_angle(angle: int, axis: str = "x"):
             if x_pwm is None:
                 logger.error("X축 PWM 객체가 초기화되지 않음")
                 return False
+                
+            # 비동기 안전한 방식으로 제어
             GPIO.output(X_SERVO_PIN, True)
             x_pwm.ChangeDutyCycle(duty)
-            time.sleep(0.3)  # 움직일 시간 대기
-            GPIO.output(X_SERVO_PIN, False)
-            x_pwm.ChangeDutyCycle(0)  # 떨림 방지
+            # time.sleep 제거 - 블로킹 방지
             current_x_angle = angle
             logger.info(f"🎯 X축 서보 각도 설정: {angle}도")
+            
         elif axis.lower() == "y":
             if y_pwm is None:
                 logger.error("Y축 PWM 객체가 초기화되지 않음")
                 return False
+                
+            # 비동기 안전한 방식으로 제어
             GPIO.output(Y_SERVO_PIN, True)
             y_pwm.ChangeDutyCycle(duty)
-            time.sleep(0.3)  # 움직일 시간 대기
-            GPIO.output(Y_SERVO_PIN, False)
-            y_pwm.ChangeDutyCycle(0)  # 떨림 방지
+            # time.sleep 제거 - 블로킹 방지
             current_y_angle = angle
             logger.info(f"🎯 Y축 서보 각도 설정: {angle}도")
+            
         else:
             logger.error(f"잘못된 축 지정: {axis}")
             return False
@@ -100,9 +125,26 @@ def set_servo_angle(angle: int, axis: str = "x"):
         logger.error(f"❌ 서보 각도 설정 실패: {e}")
         return False
 
+async def set_servo_angle_async(angle: int, axis: str = "x"):
+    """
+    서보 모터 각도 설정 (비동기 버전)
+    """
+    try:
+        # 비동기 실행자에서 동기 함수 호출
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, set_servo_angle, angle, axis)
+        
+        # 서보 안정화를 위한 짧은 대기
+        await asyncio.sleep(0.1)
+        
+        return result
+    except Exception as e:
+        logger.error(f"❌ 비동기 서보 제어 실패: {e}")
+        return False
+
 def set_xy_servo_angles(x_angle: int, y_angle: int):
     """
-    X축, Y축 서보모터 동시 제어
+    X축, Y축 서보모터 동시 제어 (동기 버전)
     
     Args:
         x_angle: X축 각도 (0~180)
@@ -130,6 +172,23 @@ def set_xy_servo_angles(x_angle: int, y_angle: int):
             
     except Exception as e:
         logger.error(f"❌ XY 서보 제어 중 예외 발생: {e}")
+        return False
+
+async def set_xy_servo_angles_async(x_angle: int, y_angle: int):
+    """
+    X축, Y축 서보모터 동시 제어 (비동기 버전)
+    """
+    try:
+        # 비동기 실행자에서 동기 함수 호출
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, set_xy_servo_angles, x_angle, y_angle)
+        
+        # 서보 안정화를 위한 짧은 대기
+        await asyncio.sleep(0.1)
+        
+        return result
+    except Exception as e:
+        logger.error(f"❌ 비동기 XY 서보 제어 실패: {e}")
         return False
 
 def handle_laser_xy(x: int, y: int):
@@ -181,9 +240,10 @@ def cleanup():
     try:
         if x_pwm:
             x_pwm.stop()
+            x_pwm = None
         if y_pwm:
             y_pwm.stop()
-        GPIO.cleanup()
+            y_pwm = None
         _initialized = False
         logger.info("🧹 X축, Y축 서보모터 정리 완료")
     except Exception as e:

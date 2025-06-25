@@ -11,9 +11,16 @@ from services.motor_service import (
     set_right_motor, set_left_motor, stop_motors, 
     cleanup as motor_cleanup, init_motor
 )
-from services.xy_servo import set_servo_angle, set_xy_servo_angles, handle_laser_xy, cleanup as servo_cleanup
+from services.xy_servo import (
+    set_servo_angle, set_xy_servo_angles, handle_laser_xy, 
+    set_servo_angle_async, set_xy_servo_angles_async,
+    cleanup as servo_cleanup
+)
 from services.sol_service import fire as solenoid_fire
-from services.feed_service import feed_once, feed_multiple, set_angle
+from services.feed_service import (
+    feed_once, feed_multiple, set_angle,
+    feed_once_sync, cleanup as feed_cleanup
+)
 from services.ultrasonic_service import get_distance, get_distance_data, cleanup_ultrasonic
 
 logger = logging.getLogger(__name__)
@@ -54,6 +61,7 @@ class CommandHandler:
         try:
             motor_cleanup()
             servo_cleanup()
+            feed_cleanup()
             self.is_initialized = False
             logger.info("🧹 하드웨어 정리 완료")
         except Exception as e:
@@ -99,7 +107,7 @@ class CommandHandler:
     def handle_laser_xy(self, x: int, y: int):
         """레이저 XY 좌표 제어 (서보 각도로 변환)"""
         try:
-            return handle_laser_xy(x, y)
+            return set_xy_servo_angles(x, y)
         except Exception as e:
             logger.error(f"❌ 레이저 XY 제어 실패: {e}")
             return False
@@ -142,10 +150,11 @@ class CommandHandler:
                 logger.warning(f"서보 각도 범위 초과: {angle}")
                 return False
                 
-            set_servo_angle(angle)
-            self.current_servo_angle = angle
-            logger.info(f"🎯 서보 각도 변경: {angle}도")
-            return True
+            result = set_servo_angle(angle)
+            if result:
+                self.current_servo_angle = angle
+                logger.info(f"🎯 서보 각도 변경: {angle}도")
+            return result
         except Exception as e:
             logger.error(f"❌ 서보 제어 실패: {e}")
             return False
@@ -158,9 +167,10 @@ class CommandHandler:
                 return False
             
             # feed_service의 서보모터 제어 함수 사용
-            set_angle(angle)
-            logger.info(f"🍚 급식 서보 각도 변경: {angle}도")
-            return True
+            result = set_angle(angle)
+            if result:
+                logger.info(f"🍚 급식 서보 각도 변경: {angle}도")
+            return result
         except Exception as e:
             logger.error(f"❌ 급식 서보 제어 실패: {e}")
             return False
@@ -173,9 +183,10 @@ class CommandHandler:
                 return False
             
             # xy_servo의 X축 서보모터 제어 함수 사용
-            set_servo_angle(angle, "x")
-            logger.info(f"🎯 레이저 서보 각도 변경: {angle}도")
-            return True
+            result = set_servo_angle(angle, "x")
+            if result:
+                logger.info(f"🎯 레이저 서보 각도 변경: {angle}도")
+            return result
         except Exception as e:
             logger.error(f"❌ 레이저 서보 제어 실패: {e}")
             return False
@@ -192,36 +203,27 @@ class CommandHandler:
             return False
 
     # === 급식 제어 ===
-    def handle_feed_now(self):
-        """즉시 급식"""
+    def handle_feed_once(self):
+        """급식 한 번 실행"""
         try:
-            # 설정에서 급식 횟수 가져오기
-            from services.settings_service import settings_service
-            amount = settings_service.get_setting("amount")
-            
-            if amount == 1:
-                feed_once()
-                logger.info("🍚 즉시 급식 실행 (1회)")
-            else:
-                feed_multiple(amount)
-                logger.info(f"🍚 즉시 급식 실행 ({amount}회)")
+            # 동기 버전 사용 (하위 호환성)
+            feed_once_sync()
+            logger.info("🍽 급식 실행 완료")
             return True
         except Exception as e:
-            logger.error(f"❌ 즉시 급식 실패: {e}")
+            logger.error(f"❌ 급식 실행 실패: {e}")
             return False
-    
-    def handle_feed_multiple(self, amount: int):
-        """다중 급식"""
+
+    def handle_feed_multiple(self, count: int):
+        """급식 여러 번 실행"""
         try:
-            if not (1 <= amount <= 10):
-                logger.warning(f"급식 횟수 범위 초과: {amount}")
-                return False
-                
-            feed_multiple(amount)
-            logger.info(f"🍚 다중 급식 실행: {amount}회")
+            # 동기 버전 사용 (하위 호환성)
+            for i in range(count):
+                feed_once_sync()
+            logger.info(f"🍽 {count}회 급식 실행 완료")
             return True
         except Exception as e:
-            logger.error(f"❌ 다중 급식 실패: {e}")
+            logger.error(f"❌ 다중 급식 실행 실패: {e}")
             return False
 
     # === 초음파 센서 제어 ===
@@ -251,51 +253,51 @@ class CommandHandler:
 
 # 전역 인스턴스
 command_handler = CommandHandler()
-_executor = concurrent.futures.ThreadPoolExecutor()
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 async def handle_command_async(command: Union[str, dict]) -> bool:
     """
-    명령 문자열 또는 JSON을 파싱하여 적절한 하드웨어 함수 호출 (비동기)
-    
-    Args:
-        command: 명령 문자열 또는 JSON 딕셔너리
-        
-    Returns:
-        bool: 명령 처리 성공 여부
+    비동기 명령 처리 (개선된 버전)
     """
     try:
-        # JSON 명령 처리
         if isinstance(command, dict):
             return await handle_json_command(command)
         
-        # 문자열 명령 처리 (기존 로직)
         cmd = command.strip().lower()
+        logger.info(f"📨 명령 수신: {cmd}")
+        
+        # === 급식 명령 ===
+        if cmd == "feed":
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
+        elif cmd.startswith("feed:"):
+            try:
+                count = int(cmd.split(":")[1])
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
+            except (IndexError, ValueError):
+                logger.error(f"급식 횟수 파싱 오류: {cmd}")
+                return False
         
         # === 레이저 명령 ===
-        if cmd == "laser_on":
+        elif cmd == "laser_on":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_on)
         elif cmd == "laser_off":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_off)
-        
-        # === laser_x, laser_y 개별 명령 ===
         elif cmd.startswith("laser_x:"):
             try:
                 x = int(cmd.split(":")[1])
                 return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_x, x)
-            except (IndexError, ValueError) as e:
-                logger.error(f"레이저 X 파싱 오류: {e}")
+            except (IndexError, ValueError):
+                logger.error(f"레이저 X 좌표 파싱 오류: {cmd}")
                 return False
         elif cmd.startswith("laser_y:"):
             try:
                 y = int(cmd.split(":")[1])
                 return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_y, y)
-            except (IndexError, ValueError) as e:
-                logger.error(f"레이저 Y 파싱 오류: {e}")
+            except (IndexError, ValueError):
+                logger.error(f"레이저 Y 좌표 파싱 오류: {cmd}")
                 return False
         
         # === 모터 명령 ===
-        elif cmd == "stop":
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, "stop")
         elif cmd in ["forward", "backward", "left", "right"]:
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, cmd)
         elif ":" in cmd and cmd.split(":")[0] in ["forward", "backward", "left", "right"]:
@@ -315,7 +317,8 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
             try:
                 angle_str = cmd.split(":")[1]
                 angle = int(angle_str)
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
+                # 비동기 서보 제어 사용
+                return await set_servo_angle_async(angle)
             except (IndexError, ValueError) as e:
                 logger.error(f"서보 각도 파싱 오류: {e}")
                 return False
@@ -328,7 +331,8 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
                 x_str, y_str = value.split(",")
                 x = int(x_str)
                 y = int(y_str)
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_xy, x, y)
+                # 비동기 XY 서보 제어 사용
+                return await set_xy_servo_angles_async(x, y)
             except (IndexError, ValueError) as e:
                 logger.error(f"레이저 XY 파싱 오류: {e}")
                 return False
@@ -337,132 +341,62 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
         elif cmd == "fire":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_fire)
         
-        # === 급식 명령 ===
-        elif cmd == "feed_now":
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
+        # === 급식 서보 명령 ===
+        elif cmd.startswith("feed_servo:"):
+            try:
+                angle_str = cmd.split(":")[1]
+                angle = int(angle_str)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_servo_angle, angle)
+            except (IndexError, ValueError) as e:
+                logger.error(f"급식 서보 각도 파싱 오류: {e}")
+                return False
         
-        # === 초음파 센서 명령 ===
-        elif cmd == "get_distance":
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance)
+        # === 레이저 서보 명령 ===
+        elif cmd.startswith("laser_servo:"):
+            try:
+                angle_str = cmd.split(":")[1]
+                angle = int(angle_str)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_servo_angle, angle)
+            except (IndexError, ValueError) as e:
+                logger.error(f"레이저 서보 각도 파싱 오류: {e}")
+                return False
         
-        # === 시스템 명령 ===
+        # === 기타 명령 ===
+        elif cmd == "stop":
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_motor_command, "stop")
         elif cmd == "reset":
-            await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
+        elif cmd == "status":
+            logger.info("📊 하드웨어 상태 조회")
             return True
-        
-        # === 오디오 명령 (로그만) ===
-        elif cmd == "audio_receive_on":
-            logger.info("🎧 오디오 수신 시작")
-            return True
-        elif cmd == "audio_receive_off":
-            logger.info("🎧 오디오 수신 종료")
-            return True
-        
-        # === 알 수 없는 명령 ===
         else:
-            logger.warning(f"알 수 없는 명령: {command}")
+            logger.warning(f"알 수 없는 명령: {cmd}")
             return False
             
     except Exception as e:
-        logger.error(f"명령 처리 중 예외 발생: {e}")
+        logger.error(f"❌ 명령 처리 중 예외 발생: {e}")
         return False
 
 async def handle_json_command(command_data: dict) -> bool:
     """
-    JSON 명령을 처리합니다.
-    
-    Args:
-        command_data: JSON 명령 딕셔너리
-        
-    Returns:
-        bool: 명령 처리 성공 여부
+    JSON 명령 처리 (개선된 버전)
     """
     try:
         command_type = command_data.get("type", "").lower()
-        
-        # === 설정 관련 JSON 명령 (클라이언트 호환성) ===
-        if "mode" in command_data or "amount" in command_data or "interval" in command_data:
-            # 설정 관련 JSON: {"mode": "auto", "amount": 5, "interval": 480}
-            try:
-                from services.settings_service import settings_service
-                from services.feed_scheduler import feed_scheduler
-                
-                # 설정 업데이트
-                updated_settings = settings_service.update_settings(command_data)
-                
-                # 스케줄러 리셋 (설정 변경 시)
-                feed_scheduler.reset_schedule()
-                
-                logger.info(f"🔧 설정 업데이트됨 (JSON): {updated_settings}")
-                return True
-                
-            except Exception as e:
-                logger.error(f"❌ 설정 업데이트 실패: {e}")
-                return False
+        logger.info(f"📨 JSON 명령 수신: {command_type}")
         
         # === 급식 관련 JSON 명령 ===
         if command_type == "feed":
-            amount = command_data.get("amount", 1)
-            if amount == 1:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-            else:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        elif command_type == "feed_now":
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-        
-        elif command_type == "feed_multiple":
-            amount = command_data.get("amount", 1)
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        # === 추가 급식 명령 형식들 (클라이언트 호환성) ===
-        elif command_type == "feeding":
-            # {"type": "feeding", "amount": 1}
-            amount = command_data.get("amount", 1)
-            if amount == 1:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-            else:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        elif command_type == "give_food":
-            # {"type": "give_food", "amount": 1}
-            amount = command_data.get("amount", 1)
-            if amount == 1:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-            else:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        elif command_type == "food":
-            # {"type": "food", "amount": 1}
-            amount = command_data.get("amount", 1)
-            if amount == 1:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-            else:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        elif command_type == "dispense":
-            # {"type": "dispense", "amount": 1}
-            amount = command_data.get("amount", 1)
-            if amount == 1:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-            else:
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
-        
-        elif command_type == "servo":
-            # {"type": "servo", "action": "feed", "amount": 1}
             action = command_data.get("action", "").lower()
-            if action == "feed":
-                amount = command_data.get("amount", 1)
-                if amount == 1:
-                    return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_now)
-                else:
-                    return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, amount)
+            if action == "once":
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
+            elif action == "multiple":
+                count = command_data.get("count", 1)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
             else:
-                # 일반 서보 각도 제어
-                angle = command_data.get("angle", 90)
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_servo_angle, angle)
+                logger.warning(f"알 수 없는 급식 액션: {action}")
+                return False
         
-        # === 새로운 서보 명령 타입들 ===
         elif command_type == "feed_servo":
             # 급식용 서보모터 제어 (GPIO 18)
             angle = command_data.get("angle", 90)
@@ -483,7 +417,8 @@ async def handle_json_command(command_data: dict) -> bool:
             elif action == "xy":
                 x = command_data.get("x", 90)
                 y = command_data.get("y", 90)
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_xy, x, y)
+                # 비동기 XY 서보 제어 사용
+                return await set_xy_servo_angles_async(x, y)
             elif action == "x":
                 x = command_data.get("x", 90)
                 return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_x, x)
@@ -501,30 +436,24 @@ async def handle_json_command(command_data: dict) -> bool:
         elif command_type == "fire":
             return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_fire)
         
-        # === 초음파 센서 관련 JSON 명령 ===
-        elif command_type == "ultrasonic":
-            action = command_data.get("action", "").lower()
-            if action == "get_distance":
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance)
-            elif action == "get_distance_data":
-                distance_data = await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_get_distance_data)
-                if distance_data:
-                    return True
-                else:
-                    return False
+        # === 서보 관련 JSON 명령 ===
+        elif command_type == "servo":
+            angle = command_data.get("angle", 90)
+            # 비동기 서보 제어 사용
+            return await set_servo_angle_async(angle)
         
-        # === 시스템 관련 JSON 명령 ===
+        # === 기타 JSON 명령 ===
         elif command_type == "reset":
-            await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.reset)
+        elif command_type == "status":
+            logger.info("📊 하드웨어 상태 조회")
             return True
-        
-        # === 알 수 없는 JSON 명령 ===
         else:
-            logger.warning(f"알 수 없는 JSON 명령: {command_data}")
+            logger.warning(f"알 수 없는 JSON 명령 타입: {command_type}")
             return False
             
     except Exception as e:
-        logger.error(f"JSON 명령 처리 중 예외 발생: {e}")
+        logger.error(f"❌ JSON 명령 처리 중 예외 발생: {e}")
         return False
 
 def get_system_status() -> Dict:
