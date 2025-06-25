@@ -127,6 +127,8 @@
         <button onclick="setFace('happy')">기본 표정</button>
     </div>
 
+    <div id="ultrasonic-value" style="position:fixed;top:10px;left:10px;font-size:2em;color:#333;z-index:2000;"></div>
+
     <script>
         function setFace(state) {
             const face = document.getElementById('face');
@@ -152,6 +154,32 @@
                 default: return '';
             }
         }
+
+        // WebSocket 초음파 센서 값 표시 예시
+        // ws는 WebSocket 인스턴스라고 가정
+        let ws;
+        window.addEventListener('load', () => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            ws = new WebSocket(protocol + '//' + host + '/ws');
+            ws.onmessage = function(event) {
+                let msg = event.data;
+                try {
+                    const data = JSON.parse(msg);
+                    if (data.type === 'ultrasonic') {
+                        if (data.distance !== undefined) {
+                            document.getElementById('ultrasonic-value').textContent = '초음파: ' + data.distance + ' cm';
+                        } else if (data.error) {
+                            document.getElementById('ultrasonic-value').textContent = '초음파 에러: ' + data.error;
+                        }
+                        return;
+                    }
+                    // ... 기존 JSON 메시지 처리 ...
+                } catch (e) {
+                    // 기타 메시지 무시
+                }
+            };
+        });
     </script>
 
 </body>

@@ -73,26 +73,29 @@ def stop_capture():
     global cap, capture_thread_running, capture_thread, active_connections
     
     active_connections -= 1
-    logger.info(f"📹 카메라 연결 해제 요청 (활성 연결: {active_connections})")
+    if active_connections < 0:
+        logging.warning(f"⚠️ active_connections가 0 미만! 강제로 0으로 보정")
+        active_connections = 0
+    logging.info(f"📹 카메라 연결 해제 요청 (활성 연결: {active_connections})")
     
     # 활성 연결이 있으면 카메라를 끄지 않음
     if active_connections > 0:
-        logger.info(f"📹 다른 클라이언트가 연결되어 있어 카메라 유지 (활성 연결: {active_connections})")
+        logging.info(f"📹 다른 클라이언트가 연결되어 있어 카메라 유지 (활성 연결: {active_connections})")
         return
     
-    logger.info("📹 모든 클라이언트 연결 해제됨 - 카메라 자원 정리 시작")
+    logging.info("📹 모든 클라이언트 연결 해제됨 - 카메라 자원 정리 시작")
     capture_thread_running = False
 
     if capture_thread and capture_thread.is_alive():
         capture_thread.join(timeout=2)
         if capture_thread.is_alive():
-            logger.warning("⚠️ 카메라 스레드 강제 종료")
+            logging.warning("⚠️ 카메라 스레드 강제 종료")
     capture_thread = None
 
     if cap:
         cap.release()
         cap = None
-        logger.info("📹 카메라 자원 정리 완료")
+        logging.info("📹 카메라 자원 정리 완료")
 
 # --------------------------------------------------------
 def generate_mjpeg():
