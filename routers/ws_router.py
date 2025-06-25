@@ -186,6 +186,61 @@ async def websocket_endpoint(websocket: WebSocket):
                     # 기존 호환성을 위해 그대로 응답
                     await websocket.send_text(json.dumps({"success": success, "command": message, "message": "명령 처리 완료" if success else "명령 처리 실패"}, ensure_ascii=False))
                     logger.info(f"✅ 문자열 명령 처리 완료: {success}")
+
+                    # 문자열 명령 처리 후 표정 관련 브로드캐스트
+                    if role == "client":
+                        # 레이저 ON
+                        if message == "laser_on":
+                            face_msg = {"type": "face", "state": "laser-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(laser-on) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    try:
+                                        observer_websockets.discard(obs_ws)
+                                    except Exception:
+                                        pass
+                        # 레이저 OFF
+                        elif message == "laser_off":
+                            face_msg = {"type": "face", "state": "happy"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(happy) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    try:
+                                        observer_websockets.discard(obs_ws)
+                                    except Exception:
+                                        pass
+                        # 솔레노이드/공 발사
+                        elif message == "fire":
+                            face_msg = {"type": "face", "state": "ball-fired"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(ball-fired) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    try:
+                                        observer_websockets.discard(obs_ws)
+                                    except Exception:
+                                        pass
+                        # 밥 주기
+                        elif message == "feed_now":
+                            face_msg = {"type": "face", "state": "food-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(food-on) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    try:
+                                        observer_websockets.discard(obs_ws)
+                                    except Exception:
+                                        pass
                 except Exception as e:
                     logger.error(f"❌ 메시지 처리 중 오류: {e}")
                     continue
