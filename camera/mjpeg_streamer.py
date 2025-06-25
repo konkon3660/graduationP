@@ -117,10 +117,3 @@ def generate_mjpeg():
     finally:
         logger.info("📹 클라이언트 연결 종료 - stop_capture() 호출")
         stop_capture()
-
-# --------------------------------------------------------
-@app.get("/mjpeg")
-def mjpeg_stream(background_tasks: BackgroundTasks):
-    # 클라이언트 연결 종료 시 stop_capture() 실행
-    background_tasks.add_task(stop_capture)
-    return StreamingResponse(generate_mjpeg(), media_type="multipart/x-mixed-replace; boundary=frame")
