@@ -5,6 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.command_service import handle_command_async
 from services.ultrasonic_service import get_distance_data
 from services.auto_play_service import auto_play_service
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -14,31 +15,47 @@ router = APIRouter()
 async def websocket_endpoint(websocket: WebSocket):
     logger.info("🔗 WebSocket 연결 시도 감지")
     
+    await websocket.accept()
+    role = "client"
     try:
-        await websocket.accept()
-        logger.info("🔗 WebSocket 클라이언트 연결됨")
-        
-        # 자동 놀이 서비스에 클라이언트 등록
+        # 최초 메시지로 observer 등록 요청이 오면 observer로 처리
+        first_msg = await asyncio.wait_for(websocket.receive_text(), timeout=1)
+        try:
+            first_data = json.loads(first_msg)
+            if first_data.get("type") == "register" and first_data.get("role") == "observer":
+                role = "observer"
+                logger.info("👀 observer로 등록된 클라이언트")
+        except Exception:
+            pass
+    except asyncio.TimeoutError:
+        pass
+
+    if role == "client":
         auto_play_service.register_client(websocket)
         logger.info("👤 자동 놀이 서비스에 클라이언트 등록됨")
-        
-        # 연결 시 현재 상태 정보 전송
-        try:
-            status_info = {
-                "type": "init",
-                "auto_play_status": auto_play_service.get_status(),
-                "message": "클라이언트 연결됨"
-            }
-            await websocket.send_text(json.dumps(status_info, ensure_ascii=False))
-            logger.info("📊 초기 상태 정보 전송됨")
-        except Exception as e:
-            logger.error(f"❌ 초기 상태 전송 실패: {e}")
-        
-        # 메시지 수신 루프
-        message_count = 0
+
+    # 연결 시 현재 상태 정보 전송
+    try:
+        status_info = {
+            "type": "init",
+            "auto_play_status": auto_play_service.get_status(),
+            "message": "클라이언트 연결됨"
+        }
+        await websocket.send_text(json.dumps(status_info, ensure_ascii=False))
+        logger.info("📊 초기 상태 정보 전송됨")
+    except Exception as e:
+        logger.error(f"❌ 초기 상태 전송 실패: {e}")
+
+    # 메시지 수신 루프
+    message_count = 0
+    try:
         while True:
             try:
                 # 클라이언트에서 받은 메시지
+                if message_count == 0 and role == "observer":
+                    # observer는 이미 첫 메시지를 소비했으므로 건너뜀
+                    message_count += 1
+                    continue
                 message = await websocket.receive_text()
                 message_count += 1
                 logger.info(f"📨 메시지 #{message_count} 수신: {message[:100]}...")
@@ -135,8 +152,9 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         # 자동 놀이 서비스에서 클라이언트 해제
         try:
-            auto_play_service.unregister_client(websocket)
-            logger.info("👤 자동 놀이 서비스에서 클라이언트 해제됨")
+            if role == "client":
+                auto_play_service.unregister_client(websocket)
+                logger.info("👤 자동 놀이 서비스에서 클라이언트 해제됨")
         except Exception as e:
             logger.error(f"❌ 클라이언트 해제 중 오류: {e}")
         logger.info(f"🔗 WebSocket 연결 종료 (총 {message_count}개 메시지 처리)")

@@ -167,16 +167,48 @@ class AutoPlayService:
             self._mobile_play_pattern,
             self._solenoid_play_pattern,
             self._exploration_pattern,
-            self._dance_pattern
+            self._dance_pattern,
+            self._circle_pattern,
+            self._figure_eight_pattern,
+            self._random_movement_pattern,
+            self._wave_pattern,
+            self._spiral_pattern,
+            self._zigzag_pattern,
+            self._heart_pattern,
+            self._sound_pattern,
+            self._combo_pattern
         ]
         pattern = random.choice(patterns)
         # --- 효과음 재생 및 딜레이 추가 ---
         next_sound = audio_playback_service.get_next_sound()
         audio_playback_service.play_sound(next_sound)
-        await asyncio.sleep(random.uniform(3, 6))
-        # --- 기존 패턴 실행 (패턴 내 효과음 재생 코드 제거 필요) ---
+        await asyncio.sleep(random.uniform(1, 3))
+        # --- 기존 패턴 실행 (패턴 내 효과음 재생 코드 추가) ---
         await pattern()
-        await asyncio.sleep(random.uniform(2, 5))
+        await asyncio.sleep(random.uniform(1, 3))
+    
+    async def _sound_pattern(self):
+        logger.info("🔊 소리만 반복 재생 패턴 시작")
+        for _ in range(random.randint(3, 6)):
+            audio_playback_service.play_sound(audio_playback_service.get_next_sound())
+            await asyncio.sleep(random.uniform(1, 2))
+    
+    async def _combo_pattern(self):
+        logger.info("🎲 콤보 패턴 시작 (움직임+소리+레이저+솔레노이드)")
+        # 랜덤하게 여러 동작을 조합
+        actions = [
+            self._laser_play_pattern,
+            self._mobile_play_pattern,
+            self._solenoid_play_pattern,
+            self._sound_pattern,
+            self._circle_pattern,
+            self._random_movement_pattern
+        ]
+        random.shuffle(actions)
+        for act in actions[:random.randint(2, 5)]:
+            await act()
+            audio_playback_service.play_sound(audio_playback_service.get_next_sound())
+            await asyncio.sleep(random.uniform(0.5, 2))
     
     async def _safe_move_forward(self, duration: float = 2.0):
         """안전한 전진 (제한된 시간과 거리)"""
@@ -234,12 +266,13 @@ class AutoPlayService:
             self._zigzag_pattern,
             self._heart_pattern
         ]
-        num_patterns = random.randint(2, 3)
+        num_patterns = random.randint(2, 4)
         for _ in range(num_patterns):
             if not self.auto_play_running:
                 break
             pattern = random.choice(patterns)
             await pattern()
+            audio_playback_service.play_sound(audio_playback_service.get_next_sound())
             await asyncio.sleep(1)
     
     async def _mobile_play_pattern(self):
