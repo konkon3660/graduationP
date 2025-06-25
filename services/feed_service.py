@@ -70,9 +70,16 @@ def set_angle(angle):
             logger.warning(f"⚠️ 듀티사이클 {duty}%는 비정상입니다.")
             return False
             
-        GPIO.output(SERVO_PIN, True)
+        # 서보모터 제어: PWM 신호 보내기
         pwm.ChangeDutyCycle(duty)
-        # time.sleep 제거 - 블로킹 방지
+        
+        # 서보모터가 움직일 시간을 주기 위해 짧은 대기
+        import time
+        time.sleep(0.1)  # 100ms 대기
+        
+        # PWM 신호 끄기 (중요!)
+        pwm.ChangeDutyCycle(0)
+        
         logger.debug(f"급식 서보 각도 설정: {angle}도")
         return True
     except Exception as e:

@@ -96,10 +96,16 @@ def set_servo_angle(angle: int, axis: str = "x"):
                 logger.error("X축 PWM 객체가 초기화되지 않음")
                 return False
                 
-            # 비동기 안전한 방식으로 제어
-            GPIO.output(X_SERVO_PIN, True)
+            # 서보모터 제어: PWM 신호 보내기
             x_pwm.ChangeDutyCycle(duty)
-            # time.sleep 제거 - 블로킹 방지
+            
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
+            import time
+            time.sleep(0.1)  # 100ms 대기
+            
+            # PWM 신호 끄기 (중요!)
+            x_pwm.ChangeDutyCycle(0)
+            
             current_x_angle = angle
             logger.info(f"🎯 X축 서보 각도 설정: {angle}도")
             
@@ -108,10 +114,16 @@ def set_servo_angle(angle: int, axis: str = "x"):
                 logger.error("Y축 PWM 객체가 초기화되지 않음")
                 return False
                 
-            # 비동기 안전한 방식으로 제어
-            GPIO.output(Y_SERVO_PIN, True)
+            # 서보모터 제어: PWM 신호 보내기
             y_pwm.ChangeDutyCycle(duty)
-            # time.sleep 제거 - 블로킹 방지
+            
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
+            import time
+            time.sleep(0.1)  # 100ms 대기
+            
+            # PWM 신호 끄기 (중요!)
+            y_pwm.ChangeDutyCycle(0)
+            
             current_y_angle = angle
             logger.info(f"🎯 Y축 서보 각도 설정: {angle}도")
             
