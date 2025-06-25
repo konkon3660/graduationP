@@ -30,7 +30,7 @@ def feed_once():
     print("🍽 서보모터 동작")
     set_angle(70)
     time.sleep(1)
-    set_angle(190)
+    set_angle(180)
     time.sleep(0.5)
 
 def feed_multiple(amount: int):
