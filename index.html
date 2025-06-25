@@ -4,395 +4,297 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Robot Display</title>
+    <title>로봇 디스플레이</title>
     <style>
-        html,
-        body {
+        * {
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #ffb6d1, #ffc2de);
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+            box-sizing: border-box;
         }
-        
-        .face {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.4s ease;
-        }
-        
-        .eyes {
-            width: 70vw;
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 6vh;
-            position: relative;
-        }
-        
-        .eye {
-            position: relative;
-            border-radius: 50%;
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            transition: all 0.4s ease;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
         }
-        
-        .pupil {
+
+        /* 얼굴 기본 스타일 */
+        .face {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, #ffdbac, #f1c27d);
             border-radius: 50%;
-            transition: all 0.4s ease;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.3),
+                inset 0 -10px 20px rgba(0,0,0,0.1);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
         }
-        
+
+        /* 눈 기본 스타일 */
+        .eyes {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 60px;
+        }
+
+        .eye {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .pupil {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 25px;
+            height: 25px;
+            background: radial-gradient(circle, #2c3e50, #34495e);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
         .eyelid {
             position: absolute;
-            width: 100%;
-            height: 100%;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #ffdbac, #f1c27d);
             border-radius: 50%;
             transform: scaleY(0);
             transform-origin: top;
-            animation: blink 5s infinite;
-            z-index: 2;
+            transition: transform 0.3s ease;
         }
-        
-        @keyframes blink {
-            0%,
-            90%,
-            100% {
-                transform: scaleY(0);
-            }
-            92%,
-            96% {
-                transform: scaleY(1);
-            }
-        }
-        
+
+        /* 입 기본 스타일 */
         .mouth {
-            transition: all 0.4s ease;
-            box-shadow: 0 0 12px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.4);
-        }
-        /* 기본 (happy) */
-        
-        .happy {
-            background: #fff3f9;
-        }
-        
-        .happy .eye {
-            width: 16vw;
-            height: 16vw;
-            background: #fff0f5;
-        }
-        
-        .happy .pupil {
-            width: 8vw;
-            height: 8vw;
-            background: radial-gradient(circle, #222, #000);
-        }
-        
-        .happy .mouth {
-            width: 16vw;
-            height: 9vw;
-            background: #ff82aa;
-            border-radius: 0 0 60% 60% / 0 0 100% 100%;
-            border-bottom: 4px solid #ff3070;
-            transform: translateY(-1vw);
-        }
-        
-        .happy .eyelid {
-            background-color: #ffe6ec;
-        }
-        /* 레이저 ON */
-        
-        .laser-on {
-            background: radial-gradient(circle, #ff6666, #cc0000);
-        }
-        
-        .laser-on .eye {
-            width: 14vw;
-            height: 8vw;
-            background: #ffcccc;
-            border-radius: 50% / 40%;
-            box-shadow: 0 0 18px 5px #ff0000 inset, 0 0 8px rgba(0, 0, 0, 0.4);
-        }
-        
-        .laser-on .pupil {
-            width: 5vw;
-            height: 5vw;
-            background: radial-gradient(circle at 40% 50%, #ff0000, #330000 90%);
-            box-shadow: 0 0 12px 5px #ff0000, inset 0 0 15px 7px #aa0000;
-        }
-        
-        .laser-on .mouth {
-            width: 12vw;
-            height: 3vw;
-            background: #cc2222;
-            box-shadow: 0 0 18px 4px #ff0000 inset, 0 0 6px rgba(0, 0, 0, 0.3);
-            transform: translateY(-1vw);
-            border-radius: 0;
-        }
-        
-        .laser-on .eyelid {
-            background-color: rgba(204, 34, 34, 0.7);
-            border-radius: 50% / 40%;
-            box-shadow: 0 0 15px 5px #cc2222 inset;
-            opacity: 0.75;
-        }
-        /* 공 발사 */
-        
-        .ball-fired {
-            background: radial-gradient(circle, #fff2a6, #ffe066);
-        }
-        
-        .ball-fired .eye {
-            width: 18vw;
-            height: 18vw;
-            background: #fff9c2;
-            box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
-        }
-        
-        .ball-fired .pupil {
-            width: 10vw;
-            height: 10vw;
-            background: radial-gradient(circle, #aa5500, #552200);
-        }
-        
-        .ball-fired .mouth {
-            width: 8vw;
-            height: 8vw;
-            background: #ffbb33;
-            border-radius: 50%;
-            box-shadow: inset 0 0 10px #ff8800, 0 0 8px rgba(0, 0, 0, 0.3);
-        }
-        
-        .ball-fired .eyelid {
-            background-color: #fff2a6;
-        }
-        /* 밥 나옴 */
-        
-        .food-on {
-            background: radial-gradient(circle, #fff2a6, #ffd966);
-        }
-        
-        .food-on .eye {
-            width: 16vw;
-            height: 16vw;
-            background: #fff8dd;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-        }
-        
-        .food-on .pupil {
-            display: none;
-        }
-        
-        .food-on .eye::before,
-        .food-on .eye::after {
-            content: '';
             position: absolute;
-            background: #ffcc00;
-            width: 8vw;
-            height: 8vw;
-            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-            top: 4vw;
-            filter: drop-shadow(0 0 8px #ffd700);
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 40px;
+            background: #e74c3c;
+            border-radius: 0 0 40px 40px;
+            transition: all 0.3s ease;
         }
-        
-        .food-on .eye::after {
-            right: 0;
+
+        /* 행복한 표정 */
+        .face.happy {
+            transform: scale(1);
         }
-        
-        .food-on .eye::before {
-            left: 0;
+
+        .face.happy .pupil {
+            background: radial-gradient(circle, #27ae60, #2ecc71);
         }
-        
-        .food-on .mouth {
-            width: 16vw;
-            height: 9vw;
-            background: #ffcc66;
-            border-bottom: 4px solid #eab800;
-            transform: translateY(-1vw);
-            border-radius: 0 0 60% 60% / 0 0 100% 100%;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.3);
+
+        .face.happy .mouth {
+            width: 100px;
+            height: 50px;
+            background: #e74c3c;
+            border-radius: 0 0 50px 50px;
+            transform: translateX(-50%) scaleY(1.2);
         }
-        
-        .food-on .eyelid {
-            background-color: #fff2a6;
+
+        /* 자동 놀이 중 표정 */
+        .face.auto-playing {
+            animation: bounce 2s infinite;
         }
-        /* 자동 놀이 중 */
-        
-        .auto-playing {
-            background: radial-gradient(circle, #ff99cc, #ff66aa);
-            animation: autoPlayPulse 2s infinite;
+
+        .face.auto-playing .pupil {
+            background: radial-gradient(circle, #f39c12, #e67e22);
+            animation: blink 3s infinite;
         }
-        
-        @keyframes autoPlayPulse {
-            0%, 100% { background: radial-gradient(circle, #ff99cc, #ff66aa); }
-            50% { background: radial-gradient(circle, #ff77bb, #ff44aa); }
+
+        .face.auto-playing .mouth {
+            width: 90px;
+            height: 45px;
+            background: #e67e22;
+            border-radius: 0 0 45px 45px;
+            animation: smile 2s infinite;
         }
-        
-        .auto-playing .eye {
-            width: 17vw;
-            height: 17vw;
-            background: #ffd6e7;
-            animation: autoPlayEye 1.5s infinite;
+
+        /* 놀란 표정 */
+        .face.surprised {
+            transform: scale(1.1);
         }
-        
-        @keyframes autoPlayEye {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+
+        .face.surprised .eye {
+            transform: scaleY(1.3);
         }
-        
-        .auto-playing .pupil {
-            width: 9vw;
-            height: 9vw;
-            background: radial-gradient(circle, #ff0066, #cc0044);
-            animation: autoPlayPupil 1s infinite;
+
+        .face.surprised .pupil {
+            background: radial-gradient(circle, #e74c3c, #c0392b);
+            transform: translate(-50%, -50%) scale(1.2);
         }
-        
-        @keyframes autoPlayPupil {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
+
+        .face.surprised .mouth {
+            width: 60px;
+            height: 60px;
+            background: #e74c3c;
+            border-radius: 50%;
+            transform: translateX(-50%);
         }
-        
-        .auto-playing .mouth {
-            width: 15vw;
-            height: 8vw;
-            background: #ff88cc;
-            border-radius: 0 0 70% 70% / 0 0 100% 100%;
-            border-bottom: 4px solid #ff4488;
-            transform: translateY(-0.5vw);
-            animation: autoPlayMouth 1.5s infinite;
+
+        /* 슬픈 표정 */
+        .face.sad {
+            transform: scale(0.95);
         }
-        
-        @keyframes autoPlayMouth {
-            0%, 100% { transform: translateY(-0.5vw) scale(1); }
-            50% { transform: translateY(-0.5vw) scale(1.05); }
+
+        .face.sad .eye {
+            transform: rotate(-5deg);
         }
-        
-        .auto-playing .eyelid {
-            background-color: #ffd6e7;
+
+        .face.sad .pupil {
+            background: radial-gradient(circle, #3498db, #2980b9);
         }
-        
-        /* 이동 중 */
-        .moving {
-            background: radial-gradient(circle, #99ccff, #6699ff);
+
+        .face.sad .mouth {
+            width: 80px;
+            height: 20px;
+            background: #3498db;
+            border-radius: 20px 20px 0 0;
+            transform: translateX(-50%) translateY(10px);
         }
-        
-        .moving .eye {
-            width: 15vw;
-            height: 15vw;
-            background: #e6f3ff;
-            animation: movingEye 0.8s infinite;
+
+        /* 호기심 많은 표정 */
+        .face.curious {
+            transform: scale(1.05);
         }
-        
-        @keyframes movingEye {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(1vw); }
-            75% { transform: translateX(-1vw); }
+
+        .face.curious .eye {
+            transform: scaleY(1.1);
         }
-        
-        .moving .pupil {
-            width: 7vw;
-            height: 7vw;
-            background: radial-gradient(circle, #0066cc, #004499);
+
+        .face.curious .pupil {
+            background: radial-gradient(circle, #9b59b6, #8e44ad);
+            animation: look-around 4s infinite;
         }
-        
-        .moving .mouth {
-            width: 14vw;
-            height: 7vw;
-            background: #66aaff;
-            border-radius: 0 0 50% 50% / 0 0 100% 100%;
-            border-bottom: 3px solid #4488cc;
-            transform: translateY(-0.5vw);
+
+        .face.curious .mouth {
+            width: 70px;
+            height: 30px;
+            background: #9b59b6;
+            border-radius: 15px;
+            transform: translateX(-50%);
         }
-        
-        .moving .eyelid {
-            background-color: #e6f3ff;
+
+        /* 애니메이션 정의 */
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
         }
-        
-        /* 탐험 중 */
-        .exploring {
-            background: radial-gradient(circle, #99ff99, #66cc66);
+
+        @keyframes blink {
+            0%, 90%, 100% { transform: translate(-50%, -50%) scaleY(1); }
+            95% { transform: translate(-50%, -50%) scaleY(0.1); }
         }
-        
-        .exploring .eye {
-            width: 16vw;
-            height: 16vw;
-            background: #e6ffe6;
-            animation: exploringEye 2s infinite;
+
+        @keyframes smile {
+            0%, 100% { transform: translateX(-50%) scaleY(1.2); }
+            50% { transform: translateX(-50%) scaleY(1.4); }
         }
-        
-        @keyframes exploringEye {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(5deg); }
-            75% { transform: rotate(-5deg); }
+
+        @keyframes look-around {
+            0%, 100% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-30%, -50%); }
+            50% { transform: translate(-50%, -30%); }
+            75% { transform: translate(-70%, -50%); }
         }
-        
-        .exploring .pupil {
-            width: 8vw;
-            height: 8vw;
-            background: radial-gradient(circle, #00cc00, #009900);
-        }
-        
-        .exploring .mouth {
-            width: 15vw;
-            height: 8vw;
-            background: #66dd66;
-            border-radius: 0 0 60% 60% / 0 0 100% 100%;
-            border-bottom: 3px solid #44bb44;
-            transform: translateY(-0.5vw);
-        }
-        
-        .exploring .eyelid {
-            background-color: #e6ffe6;
-        }
-        
+
         /* 상태 표시 */
         .status-indicator {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 15px;
-            border-radius: 10px;
-            font-size: 14px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: bold;
             color: #333;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             z-index: 1000;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
         }
-        
+
         .status-indicator.connected {
-            border-left: 4px solid #28a745;
+            border-left: 5px solid #27ae60;
+            background: rgba(39, 174, 96, 0.1);
         }
-        
+
         .status-indicator.disconnected {
-            border-left: 4px solid #dc3545;
+            border-left: 5px solid #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
         }
-        
+
         .status-indicator.connecting {
-            border-left: 4px solid #ffc107;
+            border-left: 5px solid #f39c12;
+            background: rgba(243, 156, 18, 0.1);
             animation: pulse 1.5s infinite;
         }
-        
+
         .status-indicator.auto-playing {
-            border-left: 4px solid #ffc107;
+            border-left: 5px solid #f39c12;
+            background: rgba(243, 156, 18, 0.1);
+            animation: glow 2s infinite;
         }
-        
+
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
+            50% { box-shadow: 0 4px 30px rgba(243, 156, 18, 0.3); }
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .face {
+                width: 250px;
+                height: 250px;
+            }
+            
+            .eyes {
+                top: 70px;
+                gap: 50px;
+            }
+            
+            .eye {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .pupil {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .mouth {
+                bottom: 70px;
+                width: 70px;
+                height: 35px;
+            }
         }
     </style>
 </head>
@@ -417,30 +319,52 @@
     </div>
 
     <script>
+        // 전역 변수
         let ws = null;
         let isConnected = false;
         let currentState = 'happy';
         let autoPlayStatus = null;
-        
-        // WebSocket 연결
-        function connectWebSocket() {
-            try {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const host = window.location.host;
-                const wsUrl = `${protocol}//${host}/ws`;
-                
-                console.log('WebSocket 연결 시도:', wsUrl);
-                updateStatusIndicator('connecting', '🔄 연결 중...');
-                
-                ws = new WebSocket(wsUrl);
-                
-                ws.onopen = function() {
+        let reconnectTimer = null;
+
+        // WebSocket 관리 클래스
+        class WebSocketManager {
+            constructor() {
+                this.ws = null;
+                this.isConnected = false;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                this.reconnectDelay = 3000;
+            }
+
+            connect() {
+                try {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const host = window.location.host;
+                    const wsUrl = `${protocol}//${host}/ws`;
+                    
+                    console.log('WebSocket 연결 시도:', wsUrl);
+                    updateStatusIndicator('connecting', '🔄 연결 중...');
+                    
+                    this.ws = new WebSocket(wsUrl);
+                    this.setupEventHandlers();
+                    
+                } catch (error) {
+                    console.error('WebSocket 연결 실패:', error);
+                    updateStatusIndicator('disconnected', '❌ 연결 실패');
+                }
+            }
+
+            setupEventHandlers() {
+                this.ws.onopen = () => {
+                    this.isConnected = true;
                     isConnected = true;
+                    ws = this.ws;
+                    this.reconnectAttempts = 0;
                     updateStatusIndicator('connected', '🔗 연결됨');
                     console.log('WebSocket 연결 성공');
                 };
-                
-                ws.onmessage = function(event) {
+
+                this.ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
                         handleWebSocketMessage(data);
@@ -448,32 +372,143 @@
                         console.error('메시지 파싱 오류:', e);
                     }
                 };
-                
-                ws.onclose = function(event) {
+
+                this.ws.onclose = (event) => {
+                    this.isConnected = false;
                     isConnected = false;
+                    ws = null;
                     updateStatusIndicator('disconnected', '🔌 연결 해제됨');
                     console.log('WebSocket 연결 해제됨 (코드:', event.code, '이유:', event.reason, ')');
                     
-                    // 3초 후 재연결 시도
-                    setTimeout(connectWebSocket, 3000);
+                    this.handleReconnect();
                 };
-                
-                ws.onerror = function(error) {
+
+                this.ws.onerror = (error) => {
                     console.error('WebSocket 오류:', error);
                     updateStatusIndicator('disconnected', '❌ 연결 오류');
                     
-                    // 연결 실패 시 사용자에게 알림
-                    if (!isConnected) {
+                    if (!this.isConnected) {
                         console.error('WebSocket 연결 실패 - 서버가 실행 중인지 확인하세요');
                     }
                 };
-                
-            } catch (error) {
-                console.error('WebSocket 연결 실패:', error);
-                updateStatusIndicator('disconnected', '❌ 연결 실패');
+            }
+
+            handleReconnect() {
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.reconnectAttempts++;
+                    console.log(`재연결 시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+                    
+                    reconnectTimer = setTimeout(() => {
+                        this.connect();
+                    }, this.reconnectDelay);
+                } else {
+                    console.error('최대 재연결 시도 횟수 초과');
+                    updateStatusIndicator('disconnected', '❌ 연결 실패 (재시도 중단)');
+                }
+            }
+
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                }
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            }
+
+            send(message) {
+                if (this.isConnected && this.ws) {
+                    this.ws.send(JSON.stringify(message));
+                } else {
+                    console.error('WebSocket이 연결되지 않았습니다');
+                }
             }
         }
-        
+
+        // 표정 관리 클래스
+        class FaceManager {
+            constructor() {
+                this.face = document.getElementById('face');
+                this.currentState = 'happy';
+                this.transitionDuration = 500;
+            }
+
+            setState(newState) {
+                if (this.currentState === newState) return;
+                
+                console.log('표정 변경:', this.currentState, '→', newState);
+                
+                // 기존 클래스 제거
+                this.face.classList.remove(this.currentState);
+                
+                // 새 클래스 추가
+                this.face.classList.add(newState);
+                this.currentState = newState;
+                
+                // 상태별 추가 효과
+                this.applyStateEffects(newState);
+            }
+
+            applyStateEffects(state) {
+                switch (state) {
+                    case 'auto-playing':
+                        this.addGlowEffect();
+                        break;
+                    case 'surprised':
+                        this.addShakeEffect();
+                        break;
+                    case 'sad':
+                        this.addDroopEffect();
+                        break;
+                    default:
+                        this.removeEffects();
+                }
+            }
+
+            addGlowEffect() {
+                this.face.style.boxShadow = `
+                    0 10px 30px rgba(0,0,0,0.3),
+                    inset 0 -10px 20px rgba(0,0,0,0.1),
+                    0 0 30px rgba(243, 156, 18, 0.5)
+                `;
+            }
+
+            addShakeEffect() {
+                this.face.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    this.face.style.animation = '';
+                }, 500);
+            }
+
+            addDroopEffect() {
+                this.face.style.transform = 'scale(0.95) rotate(-2deg)';
+            }
+
+            removeEffects() {
+                this.face.style.boxShadow = '';
+                this.face.style.animation = '';
+                this.face.style.transform = '';
+            }
+        }
+
+        // 상태 표시 관리 클래스
+        class StatusManager {
+            constructor() {
+                this.indicator = document.getElementById('statusIndicator');
+            }
+
+            update(status, message) {
+                this.indicator.className = `status-indicator ${status}`;
+                this.indicator.textContent = message;
+            }
+        }
+
+        // 전역 인스턴스
+        const wsManager = new WebSocketManager();
+        const faceManager = new FaceManager();
+        const statusManager = new StatusManager();
+
         // WebSocket 메시지 처리
         function handleWebSocketMessage(data) {
             switch(data.type) {
@@ -494,65 +529,80 @@
                     console.log('수신된 메시지:', data.type);
             }
         }
-        
-        // 상태 표시 업데이트
-        function updateStatusIndicator(status, message) {
-            const indicator = document.getElementById('statusIndicator');
-            indicator.className = `status-indicator ${status}`;
-            indicator.textContent = message;
-        }
-        
+
         // 상태에 따른 표정 업데이트
         function updateFaceBasedOnStatus() {
             if (!autoPlayStatus) {
-                setFace('happy');
+                faceManager.setState('happy');
+                statusManager.update('connected', '🔗 연결됨');
                 return;
             }
             
             if (autoPlayStatus.is_auto_playing) {
-                setFace('auto-playing');
-                updateStatusIndicator('auto-playing', '🎮 자동 놀이 중');
+                faceManager.setState('auto-playing');
+                statusManager.update('auto-playing', '🎮 자동 놀이 중');
             } else if (autoPlayStatus.connected_clients > 0) {
-                setFace('happy');
-                updateStatusIndicator('connected', `🔗 클라이언트 ${autoPlayStatus.connected_clients}명 연결됨`);
+                faceManager.setState('happy');
+                statusManager.update('connected', `🔗 클라이언트 ${autoPlayStatus.connected_clients}명 연결됨`);
             } else {
-                setFace('happy');
-                updateStatusIndicator('connected', `⏰ ${autoPlayStatus.auto_play_delay}초 후 자동 놀이 예정`);
+                faceManager.setState('curious');
+                statusManager.update('connected', `⏰ ${autoPlayStatus.auto_play_delay}초 후 자동 놀이 예정`);
             }
         }
-        
-        // 표정 설정
-        function setFace(state) {
-            const face = document.getElementById('face');
-            face.className = 'face ' + state;
-            currentState = state;
-            console.log('표정 변경:', state);
-        }
-        
+
         // 주기적으로 자동 놀이 상태 조회
         function pollAutoPlayStatus() {
             if (isConnected && ws) {
-                ws.send(JSON.stringify({
+                wsManager.send({
                     type: 'get_auto_play_status'
-                }));
+                });
             }
         }
-        
-        // 페이지 로드 시 초기화
-        window.addEventListener('load', function() {
-            console.log('로봇 디스플레이 페이지 로드됨');
-            connectWebSocket();
+
+        // 얼굴 클릭 이벤트
+        function setupFaceClick() {
+            const face = document.getElementById('face');
+            face.addEventListener('click', () => {
+                const states = ['happy', 'surprised', 'curious', 'sad'];
+                const currentIndex = states.indexOf(faceManager.currentState);
+                const nextIndex = (currentIndex + 1) % states.length;
+                faceManager.setState(states[nextIndex]);
+            });
+        }
+
+        // 페이지 초기화
+        function initialize() {
+            console.log('로봇 디스플레이 페이지 초기화');
+            
+            // WebSocket 연결
+            wsManager.connect();
+            
+            // 얼굴 클릭 이벤트 설정
+            setupFaceClick();
             
             // 5초마다 자동 놀이 상태 조회
             setInterval(pollAutoPlayStatus, 5000);
-        });
-        
+        }
+
         // 페이지 언로드 시 정리
-        window.addEventListener('beforeunload', function() {
-            if (ws) {
-                ws.close();
+        function cleanup() {
+            wsManager.disconnect();
+        }
+
+        // 이벤트 리스너 등록
+        window.addEventListener('load', initialize);
+        window.addEventListener('beforeunload', cleanup);
+
+        // CSS 애니메이션 추가
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
             }
-        });
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 
