@@ -10,6 +10,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+observer_websockets = set()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -24,7 +25,8 @@ async def websocket_endpoint(websocket: WebSocket):
             first_data = json.loads(first_msg)
             if first_data.get("type") == "register" and first_data.get("role") == "observer":
                 role = "observer"
-                logger.info("👀 observer로 등록된 클라이언트")
+                observer_websockets.add(websocket)
+                logger.info("👀 observer로 등록된 클라이언트 (총 %d명)", len(observer_websockets))
         except Exception:
             pass
     except asyncio.TimeoutError:
@@ -51,16 +53,13 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             try:
-                # 클라이언트에서 받은 메시지
                 if message_count == 0 and role == "observer":
-                    # observer는 이미 첫 메시지를 소비했으므로 건너뜀
                     message_count += 1
                     continue
                 message = await websocket.receive_text()
                 message_count += 1
                 logger.info(f"📨 메시지 #{message_count} 수신: {message[:100]}...")
                 try:
-                    # JSON 형식인지 확인
                     command_data = json.loads(message)
                     logger.info(f"📨 JSON 명령 수신: {command_data}")
 
@@ -104,6 +103,50 @@ async def websocket_endpoint(websocket: WebSocket):
                         response["error"] = "명령 처리 실패"
                     await websocket.send_text(json.dumps(response, ensure_ascii=False))
                     logger.info(f"✅ JSON 명령 처리 완료: {success}")
+
+                    # 명령 처리 후 표정 관련 브로드캐스트 예시
+                    # (아래는 예시, 실제 명령 처리 후에 위치시켜야 함)
+                    if role == "client":
+                        # 예: 레이저 ON
+                        if command_data.get("type") == "laser" and command_data.get("action") == "on":
+                            face_msg = {"type": "face", "state": "laser-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(laser-on) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    observer_websockets.discard(obs_ws)
+                        # 예: 레이저 OFF
+                        if command_data.get("type") == "laser" and command_data.get("action") == "off":
+                            face_msg = {"type": "face", "state": "happy"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(happy) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    observer_websockets.discard(obs_ws)
+                        # 예: 솔레노이드/공 발사
+                        if command_data.get("type") in ["fire", "solenoid"]:
+                            face_msg = {"type": "face", "state": "ball-fired"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(ball-fired) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    observer_websockets.discard(obs_ws)
+                        # 예: 밥 주기
+                        if command_data.get("type") in ["food", "feed_now", "dispense"]:
+                            face_msg = {"type": "face", "state": "food-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(food-on) 전송: {obs_ws}")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    observer_websockets.discard(obs_ws)
 
                 except json.JSONDecodeError:
                     # JSON이 아닌 경우 문자열 명령으로 처리
@@ -150,8 +193,10 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"❌ WebSocket 연결/처리 오류: {e}")
     finally:
-        # 자동 놀이 서비스에서 클라이언트 해제
         try:
+            if role == "observer":
+                observer_websockets.discard(websocket)
+                logger.info("👀 observer 해제 (총 %d명)", len(observer_websockets))
             if role == "client":
                 auto_play_service.unregister_client(websocket)
                 logger.info("👤 자동 놀이 서비스에서 클라이언트 해제됨")
