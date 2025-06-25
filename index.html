@@ -131,8 +131,10 @@
 
     <script>
         function setFace(state) {
+            console.log('🎭 setFace 호출됨:', state);
             const face = document.getElementById('face');
             face.className = 'face ' + state;
+            console.log('🎭 클래스 변경됨:', face.className);
 
             // 버튼 눌림 효과
             document.querySelectorAll('.buttons button').forEach(btn => {
@@ -168,6 +170,7 @@
             };
             ws.onmessage = function(event) {
                 let msg = event.data;
+                console.log('📨 WebSocket 메시지 수신:', msg);
                 try {
                     const data = JSON.parse(msg);
                     if (data.type === 'ultrasonic') {
@@ -180,6 +183,7 @@
                     }
                     // 서버에서 표정 상태를 직접 보내는 경우
                     if (data.type === 'face' && data.state) {
+                        console.log('🎭 표정 변경 명령 수신:', data.state);
                         setFace(data.state);
                         return;
                     }
@@ -210,6 +214,7 @@
                     }
                     // ... 기존 JSON 메시지 처리 ...
                 } catch (e) {
+                    console.log('❌ JSON 파싱 실패:', e);
                     // 기타 메시지 무시
                 }
             };
