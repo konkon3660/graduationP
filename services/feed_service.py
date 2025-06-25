@@ -73,12 +73,11 @@ def set_angle(angle):
         # 서보모터 제어: PWM 신호 보내기
         pwm.ChangeDutyCycle(duty)
         
-        # 서보모터가 움직일 시간을 주기 위해 짧은 대기
-        import time
-        time.sleep(0.1)  # 100ms 대기
+        # time.sleep 제거 - 블로킹 방지
+        # 서보모터는 PWM 신호만으로도 충분히 동작함
         
-        # PWM 신호 끄기 (중요!)
-        pwm.ChangeDutyCycle(0)
+        # PWM 신호는 유지 (서보모터가 안정화될 때까지)
+        # 대신 비동기 함수에서 asyncio.sleep으로 대기
         
         logger.debug(f"급식 서보 각도 설정: {angle}도")
         return True
@@ -92,8 +91,13 @@ async def set_angle_async(angle):
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, set_angle, angle)
         
-        # 서보 안정화를 위한 짧은 대기
-        await asyncio.sleep(0.1)
+        if result:
+            # 서보모터 안정화를 위한 비동기 대기
+            await asyncio.sleep(0.2)  # 200ms 비동기 대기
+            
+            # PWM 신호 끄기 (서보모터 안정화 후)
+            if pwm:
+                pwm.ChangeDutyCycle(0)
         
         return result
     except Exception as e:

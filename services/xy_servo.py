@@ -99,12 +99,8 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             x_pwm.ChangeDutyCycle(duty)
             
-            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
-            import time
-            time.sleep(0.1)  # 100ms 대기
-            
-            # PWM 신호 끄기 (중요!)
-            x_pwm.ChangeDutyCycle(0)
+            # time.sleep 제거 - 블로킹 방지
+            # 서보모터는 PWM 신호만으로도 충분히 동작함
             
             current_x_angle = angle
             logger.info(f"🎯 X축 서보 각도 설정: {angle}도")
@@ -117,12 +113,8 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             y_pwm.ChangeDutyCycle(duty)
             
-            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
-            import time
-            time.sleep(0.1)  # 100ms 대기
-            
-            # PWM 신호 끄기 (중요!)
-            y_pwm.ChangeDutyCycle(0)
+            # time.sleep 제거 - 블로킹 방지
+            # 서보모터는 PWM 신호만으로도 충분히 동작함
             
             current_y_angle = angle
             logger.info(f"🎯 Y축 서보 각도 설정: {angle}도")
@@ -146,8 +138,15 @@ async def set_servo_angle_async(angle: int, axis: str = "x"):
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, set_servo_angle, angle, axis)
         
-        # 서보 안정화를 위한 짧은 대기
-        await asyncio.sleep(0.1)
+        if result:
+            # 서보모터 안정화를 위한 비동기 대기
+            await asyncio.sleep(0.2)  # 200ms 비동기 대기
+            
+            # PWM 신호 끄기 (서보모터 안정화 후)
+            if axis.lower() == "x" and x_pwm:
+                x_pwm.ChangeDutyCycle(0)
+            elif axis.lower() == "y" and y_pwm:
+                y_pwm.ChangeDutyCycle(0)
         
         return result
     except Exception as e:
@@ -195,8 +194,15 @@ async def set_xy_servo_angles_async(x_angle: int, y_angle: int):
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, set_xy_servo_angles, x_angle, y_angle)
         
-        # 서보 안정화를 위한 짧은 대기
-        await asyncio.sleep(0.1)
+        if result:
+            # 서보모터 안정화를 위한 비동기 대기
+            await asyncio.sleep(0.2)  # 200ms 비동기 대기
+            
+            # PWM 신호 끄기 (서보모터 안정화 후)
+            if x_pwm:
+                x_pwm.ChangeDutyCycle(0)
+            if y_pwm:
+                y_pwm.ChangeDutyCycle(0)
         
         return result
     except Exception as e:
