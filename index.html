@@ -183,16 +183,23 @@
                         setFace(data.state);
                         return;
                     }
-                    // 명령 처리 결과에 따라 표정 변경
+                    // 명령 처리 결과에 따라 표정 변경 (객체/문자열 모두 대응)
                     if (data.success && data.command) {
-                        // 레이저 ON/OFF
-                        if (data.command.type === 'laser' && data.command.action === 'on') setFace('laser-on');
-                        if (data.command.type === 'laser' && data.command.action === 'off') setFace('happy');
-                        // 솔레노이드/공 발사
-                        if (data.command.type === 'fire' || data.command.type === 'solenoid') setFace('ball-fired');
-                        // 밥 주기
-                        if (data.command.type === 'food' || data.command.type === 'feed_now' || data.command.type === 'dispense') setFace('food-on');
-                        // 필요시 추가: 모터, 기타 명령 등
+                        console.log('명령 처리 결과:', data.command);
+                        // 객체 명령(JSON)
+                        if (typeof data.command === 'object') {
+                            if (data.command.type === 'laser' && data.command.action === 'on') setFace('laser-on');
+                            if (data.command.type === 'laser' && data.command.action === 'off') setFace('happy');
+                            if (data.command.type === 'fire' || data.command.type === 'solenoid') setFace('ball-fired');
+                            if (data.command.type === 'food' || data.command.type === 'feed_now' || data.command.type === 'dispense') setFace('food-on');
+                        }
+                        // 문자열 명령
+                        if (typeof data.command === 'string') {
+                            if (data.command.includes('laser_on')) setFace('laser-on');
+                            if (data.command.includes('laser_off')) setFace('happy');
+                            if (data.command.includes('fire')) setFace('ball-fired');
+                            if (data.command.includes('feed') || data.command.includes('food')) setFace('food-on');
+                        }
                     }
                     // 자동 놀이 상태에 따라 표정 변경 (예: init, auto_play_status)
                     if (data.type === 'init' || data.type === 'auto_play_status') {
