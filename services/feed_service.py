@@ -28,9 +28,9 @@ def set_angle(angle):
 def feed_once():
     """한 번의 급식을 실행합니다."""
     print("🍽 서보모터 동작")
-    set_angle(90)
+    set_angle(70)
     time.sleep(1)
-    set_angle(180)
+    set_angle(190)
     time.sleep(0.5)
 
 def feed_multiple(amount: int):
