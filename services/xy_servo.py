@@ -2,8 +2,8 @@
 import RPi.GPIO as GPIO
 import asyncio
 import logging
-from typing import Optional
 import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +70,9 @@ def init_xy_servo():
         cleanup()
         return False
 
-def set_servo_angle(angle: int, axis: str = "x"):
+def _set_servo_angle_sync(angle: int, axis: str = "x"):
     """
-    서보 모터 각도 설정 (동기 버전)
+    서보 모터 각도 설정 (순수 동기 함수 - run_in_executor용)
     
     Args:
         angle: 0~180도 범위의 각도
@@ -80,10 +80,6 @@ def set_servo_angle(angle: int, axis: str = "x"):
     """
     global current_x_angle, current_y_angle
     
-    if not init_xy_servo():
-        logger.error("서보모터 초기화 실패")
-        return False
-        
     if not (0 <= angle <= 180):
         logger.error(f"각도 범위 초과: {angle} (0~180도만 허용)")
         return False
@@ -100,8 +96,8 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             x_pwm.ChangeDutyCycle(duty)
             
-            # 서보모터가 움직일 시간을 주기 위해 짧은 대기 (동기)
-            time.sleep(0.05)  # 50ms 대기 (최소한으로)
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
+            time.sleep(0.1)  # 100ms 대기
             
             # PWM 신호 끄기 (중요!)
             x_pwm.ChangeDutyCycle(0)
@@ -117,8 +113,8 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             y_pwm.ChangeDutyCycle(duty)
             
-            # 서보모터가 움직일 시간을 주기 위해 짧은 대기 (동기)
-            time.sleep(0.05)  # 50ms 대기 (최소한으로)
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기
+            time.sleep(0.1)  # 100ms 대기
             
             # PWM 신호 끄기 (중요!)
             y_pwm.ChangeDutyCycle(0)
@@ -136,18 +132,30 @@ def set_servo_angle(angle: int, axis: str = "x"):
         logger.error(f"❌ 서보 각도 설정 실패: {e}")
         return False
 
+def set_servo_angle(angle: int, axis: str = "x"):
+    """
+    서보 모터 각도 설정 (동기 래퍼 - 하위 호환성)
+    
+    Args:
+        angle: 0~180도 범위의 각도
+        axis: "x" 또는 "y" (기본값: "x")
+    """
+    if not init_xy_servo():
+        logger.error("서보모터 초기화 실패")
+        return False
+    return _set_servo_angle_sync(angle, axis)
+
 async def set_servo_angle_async(angle: int, axis: str = "x"):
     """
     서보 모터 각도 설정 (비동기 버전)
     """
     try:
+        if not init_xy_servo():
+            return False
+            
         # 비동기 실행자에서 동기 함수 호출
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, set_servo_angle, angle, axis)
-        
-        if result:
-            # 서보모터 추가 안정화를 위한 비동기 대기
-            await asyncio.sleep(0.1)  # 100ms 비동기 대기
+        result = await loop.run_in_executor(None, _set_servo_angle_sync, angle, axis)
         
         return result
     except Exception as e:
@@ -172,8 +180,8 @@ def set_xy_servo_angles(x_angle: int, y_angle: int):
             return False
         
         # X축과 Y축 동시 제어
-        success_x = set_servo_angle(x_angle, "x")
-        success_y = set_servo_angle(y_angle, "y")
+        success_x = _set_servo_angle_sync(x_angle, "x")
+        success_y = _set_servo_angle_sync(y_angle, "y")
         
         if success_x and success_y:
             logger.info(f"🎯 XY 서보 각도 설정 완료: X={x_angle}도, Y={y_angle}도")
@@ -191,13 +199,12 @@ async def set_xy_servo_angles_async(x_angle: int, y_angle: int):
     X축, Y축 서보모터 동시 제어 (비동기 버전)
     """
     try:
+        if not init_xy_servo():
+            return False
+            
         # 비동기 실행자에서 동기 함수 호출
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, set_xy_servo_angles, x_angle, y_angle)
-        
-        if result:
-            # 서보모터 추가 안정화를 위한 비동기 대기
-            await asyncio.sleep(0.1)  # 100ms 비동기 대기
         
         return result
     except Exception as e:

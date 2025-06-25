@@ -55,11 +55,8 @@ def init_feed_servo():
         cleanup()
         return False
 
-def set_angle(angle):
-    """서보모터 각도 설정 (동기 버전)"""
-    if not init_feed_servo():
-        return False
-        
+def _set_angle_sync(angle):
+    """서보모터 각도 설정 (순수 동기 함수 - run_in_executor용)"""
     try:
         if pwm is None:
             logger.error("PWM 객체가 초기화되지 않음")
@@ -73,9 +70,9 @@ def set_angle(angle):
         # 서보모터 제어: PWM 신호 보내기
         pwm.ChangeDutyCycle(duty)
         
-        # 서보모터가 움직일 시간을 주기 위해 짧은 대기 (동기)
+        # 서보모터가 움직일 시간을 주기 위해 짧은 대기
         import time
-        time.sleep(0.05)  # 50ms 대기 (최소한으로)
+        time.sleep(0.1)  # 100ms 대기
         
         # PWM 신호 끄기 (중요!)
         pwm.ChangeDutyCycle(0)
@@ -86,15 +83,21 @@ def set_angle(angle):
         logger.error(f"❌ 급식 서보 각도 설정 실패: {e}")
         return False
 
+def set_angle(angle):
+    """서보모터 각도 설정 (동기 래퍼 - 하위 호환성)"""
+    if not init_feed_servo():
+        return False
+    return _set_angle_sync(angle)
+
 async def set_angle_async(angle):
     """서보모터 각도 설정 (비동기 버전)"""
     try:
+        if not init_feed_servo():
+            return False
+            
+        # 비동기 실행자에서 동기 함수 호출
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, set_angle, angle)
-        
-        if result:
-            # 서보모터 추가 안정화를 위한 비동기 대기
-            await asyncio.sleep(0.1)  # 100ms 비동기 대기
+        result = await loop.run_in_executor(None, _set_angle_sync, angle)
         
         return result
     except Exception as e:
@@ -108,9 +111,9 @@ async def feed_once():
         
         # 비동기로 각도 설정
         await set_angle_async(120)
-        await asyncio.sleep(0.5)  # 비동기 대기
-        await set_angle_async(180)
         await asyncio.sleep(0.3)  # 비동기 대기
+        await set_angle_async(180)
+        await asyncio.sleep(0.2)  # 비동기 대기
         
         logger.info("✅ 급식 완료")
         return True
