@@ -15,6 +15,7 @@ PWM_FREQUENCY = 50
 pwm = None
 _initialized = False
 _gpio_initialized = False
+feeding_lock = asyncio.Lock()
 
 def _init_gpio():
     """GPIO 초기화 (한 번만 실행)"""
@@ -105,37 +106,34 @@ async def set_angle_async(angle):
         return False
 
 async def feed_once():
-    """한 번의 급식을 실행합니다. (비동기 버전)"""
-    try:
-        logger.info("🍽 급식 서보모터 동작 시작")
-        
-        # 비동기로 각도 설정
-        await set_angle_async(60)
-        await asyncio.sleep(0.3)  # 비동기 대기
-        await set_angle_async(120)
-        await asyncio.sleep(0.2)  # 비동기 대기
-        
-        logger.info("✅ 급식 완료")
-        return True
-    except Exception as e:
-        logger.error(f"❌ 급식 실행 실패: {e}")
-        return False
+    global feeding_lock
+    async with feeding_lock:
+        try:
+            logger.info("🍽 급식 서보모터 동작 시작")
+            await set_angle_async(60)
+            await asyncio.sleep(0.3)
+            await set_angle_async(120)
+            await asyncio.sleep(0.2)
+            logger.info("✅ 급식 완료")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 급식 실행 실패: {e}")
+            return False
 
 async def feed_multiple(count: int):
-    """여러 번의 급식을 실행합니다."""
-    try:
-        logger.info(f"🍽 {count}회 급식 시작")
-        
-        for i in range(count):
-            if i > 0:
-                await asyncio.sleep(0.2)  # 급식 간 대기
-            await feed_once()
-            
-        logger.info(f"✅ {count}회 급식 완료")
-        return True
-    except Exception as e:
-        logger.error(f"❌ 다중 급식 실행 실패: {e}")
-        return False
+    global feeding_lock
+    async with feeding_lock:
+        try:
+            logger.info(f"🍽 {count}회 급식 시작")
+            for i in range(count):
+                if i > 0:
+                    await asyncio.sleep(0.2)
+                await feed_once()
+            logger.info(f"✅ {count}회 급식 완료")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 다중 급식 실행 실패: {e}")
+            return False
 
 def cleanup():
     """급식 서보모터 리소스 정리"""
@@ -169,6 +167,6 @@ def feed_once_sync():
         # 폴백: 동기 실행 (최소한의 블로킹)
         set_angle(60)
         import time
-        time.sleep(0.2)
-        set_angle(150)
-        time.sleep(0.3)
+        time.sleep(0.1)
+        set_angle(120)
+        time.sleep(0.1)
