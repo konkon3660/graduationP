@@ -128,7 +128,7 @@ async def feed_multiple(count: int):
         
         for i in range(count):
             if i > 0:
-                await asyncio.sleep(1)  # 급식 간 대기
+                await asyncio.sleep(0.2)  # 급식 간 대기
             await feed_once()
             
         logger.info(f"✅ {count}회 급식 완료")
@@ -169,6 +169,6 @@ def feed_once_sync():
         # 폴백: 동기 실행 (최소한의 블로킹)
         set_angle(90)
         import time
-        time.sleep(0.1)
+        time.sleep(0.2)
         set_angle(120)
-        time.sleep(0.1)
+        time.sleep(0.3)
