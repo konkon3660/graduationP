@@ -174,6 +174,18 @@ async def websocket_endpoint(websocket: WebSocket):
                                         observer_websockets.discard(obs_ws)
                                     except Exception:
                                         pass
+                except json.JSONDecodeError:
+                    # JSON 파싱 실패 시 문자열 명령 처리
+                    logger.info(f"📨 문자열 명령 수신: {message}")
+                    try:
+                        success = await handle_command_async(message)
+                    except Exception as e:
+                        logger.error(f"❌ 문자열 명령 처리 중 예외: {e}")
+                        await websocket.send_text(json.dumps({"success": False, "error": str(e), "command": message, "message": "문자열 명령 처리 중 예외"}, ensure_ascii=False))
+                        continue
+                    # 기존 호환성을 위해 그대로 응답
+                    await websocket.send_text(json.dumps({"success": success, "command": message, "message": "명령 처리 완료" if success else "명령 처리 실패"}, ensure_ascii=False))
+                    logger.info(f"✅ 문자열 명령 처리 완료: {success}")
                 except Exception as e:
                     logger.error(f"❌ 메시지 처리 중 오류: {e}")
                     continue
