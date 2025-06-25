@@ -41,8 +41,25 @@ def camera_capture_thread():
     logger.info("📹 카메라 캡처 스레드 종료")
 
 # --------------------------------------------------------
+def _force_release_camera():
+    global cap, capture_thread_running, capture_thread
+    capture_thread_running = False
+    if capture_thread and capture_thread.is_alive():
+        capture_thread.join(timeout=2)
+        if capture_thread.is_alive():
+            logging.warning("⚠️ 카메라 스레드 강제 종료")
+    capture_thread = None
+    if cap:
+        cap.release()
+        cap = None
+        logging.info("📹 (내부) 카메라 자원 강제 정리 완료")
+
+# --------------------------------------------------------
 def start_capture():
     global cap, capture_thread, capture_thread_running, active_connections
+
+    # 이전 자원 정리 (active_connections는 건드리지 않음)
+    _force_release_camera()
 
     active_connections += 1
     logger.info(f"📹 카메라 연결 요청 (활성 연결: {active_connections})")
@@ -50,8 +67,6 @@ def start_capture():
     if capture_thread_running and capture_thread and capture_thread.is_alive():
         logger.info("📹 이미 스트리밍 중 - 기존 자원 사용")
         return
-
-    stop_capture()  # 혹시 남아있는 이전 자원 정리
 
     cap = wait_for_camera_ready("/dev/video0")
     if not cap:
