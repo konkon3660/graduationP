@@ -4,302 +4,108 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>로봇 디스플레이</title>
+    <title>Robot Display</title>
     <style>
-        * {
+        html,
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            background: linear-gradient(135deg, #ffb6d1, #ffc2de);
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
         }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        .face {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.4s ease;
+        }
+        .eyes {
+            width: 70vw;
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 6vh;
+            position: relative;
+        }
+        .eye {
+            position: relative;
+            border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
         }
-
-        /* 얼굴 기본 스타일 */
-        .face {
-            position: relative;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, #ffdbac, #f1c27d);
-            border-radius: 50%;
-            box-shadow: 
-                0 10px 30px rgba(0,0,0,0.3),
-                inset 0 -10px 20px rgba(0,0,0,0.1);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-        }
-
-        /* 눈 기본 스타일 */
-        .eyes {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 60px;
-        }
-
-        .eye {
-            position: relative;
-            width: 60px;
-            height: 60px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
-
         .pupil {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 25px;
-            height: 25px;
-            background: radial-gradient(circle, #2c3e50, #34495e);
             border-radius: 50%;
-            transition: all 0.3s ease;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
         }
-
         .eyelid {
             position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle, #ffdbac, #f1c27d);
+            top: 0;
+            left: 0;
             border-radius: 50%;
             transform: scaleY(0);
             transform-origin: top;
-            transition: transform 0.3s ease;
+            animation: blink 5s infinite;
+            z-index: 2;
         }
-
-        /* 입 기본 스타일 */
-        .mouth {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 40px;
-            background: #e74c3c;
-            border-radius: 0 0 40px 40px;
-            transition: all 0.3s ease;
-        }
-
-        /* 행복한 표정 */
-        .face.happy {
-            transform: scale(1);
-        }
-
-        .face.happy .pupil {
-            background: radial-gradient(circle, #27ae60, #2ecc71);
-        }
-
-        .face.happy .mouth {
-            width: 100px;
-            height: 50px;
-            background: #e74c3c;
-            border-radius: 0 0 50px 50px;
-            transform: translateX(-50%) scaleY(1.2);
-        }
-
-        /* 자동 놀이 중 표정 */
-        .face.auto-playing {
-            animation: bounce 2s infinite;
-        }
-
-        .face.auto-playing .pupil {
-            background: radial-gradient(circle, #f39c12, #e67e22);
-            animation: blink 3s infinite;
-        }
-
-        .face.auto-playing .mouth {
-            width: 90px;
-            height: 45px;
-            background: #e67e22;
-            border-radius: 0 0 45px 45px;
-            animation: smile 2s infinite;
-        }
-
-        /* 놀란 표정 */
-        .face.surprised {
-            transform: scale(1.1);
-        }
-
-        .face.surprised .eye {
-            transform: scaleY(1.3);
-        }
-
-        .face.surprised .pupil {
-            background: radial-gradient(circle, #e74c3c, #c0392b);
-            transform: translate(-50%, -50%) scale(1.2);
-        }
-
-        .face.surprised .mouth {
-            width: 60px;
-            height: 60px;
-            background: #e74c3c;
-            border-radius: 50%;
-            transform: translateX(-50%);
-        }
-
-        /* 슬픈 표정 */
-        .face.sad {
-            transform: scale(0.95);
-        }
-
-        .face.sad .eye {
-            transform: rotate(-5deg);
-        }
-
-        .face.sad .pupil {
-            background: radial-gradient(circle, #3498db, #2980b9);
-        }
-
-        .face.sad .mouth {
-            width: 80px;
-            height: 20px;
-            background: #3498db;
-            border-radius: 20px 20px 0 0;
-            transform: translateX(-50%) translateY(10px);
-        }
-
-        /* 호기심 많은 표정 */
-        .face.curious {
-            transform: scale(1.05);
-        }
-
-        .face.curious .eye {
-            transform: scaleY(1.1);
-        }
-
-        .face.curious .pupil {
-            background: radial-gradient(circle, #9b59b6, #8e44ad);
-            animation: look-around 4s infinite;
-        }
-
-        .face.curious .mouth {
-            width: 70px;
-            height: 30px;
-            background: #9b59b6;
-            border-radius: 15px;
-            transform: translateX(-50%);
-        }
-
-        /* 애니메이션 정의 */
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-
         @keyframes blink {
-            0%, 90%, 100% { transform: translate(-50%, -50%) scaleY(1); }
-            95% { transform: translate(-50%, -50%) scaleY(0.1); }
+            0%, 90%, 100% { transform: scaleY(0); }
+            92%, 96% { transform: scaleY(1); }
         }
-
-        @keyframes smile {
-            0%, 100% { transform: translateX(-50%) scaleY(1.2); }
-            50% { transform: translateX(-50%) scaleY(1.4); }
+        .mouth {
+            transition: all 0.4s ease;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.4);
         }
-
-        @keyframes look-around {
-            0%, 100% { transform: translate(-50%, -50%); }
-            25% { transform: translate(-30%, -50%); }
-            50% { transform: translate(-50%, -30%); }
-            75% { transform: translate(-70%, -50%); }
-        }
-
-        /* 상태 표시 */
-        .status-indicator {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px 20px;
-            border-radius: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .status-indicator.connected {
-            border-left: 5px solid #27ae60;
-            background: rgba(39, 174, 96, 0.1);
-        }
-
-        .status-indicator.disconnected {
-            border-left: 5px solid #e74c3c;
-            background: rgba(231, 76, 60, 0.1);
-        }
-
-        .status-indicator.connecting {
-            border-left: 5px solid #f39c12;
-            background: rgba(243, 156, 18, 0.1);
-            animation: pulse 1.5s infinite;
-        }
-
-        .status-indicator.auto-playing {
-            border-left: 5px solid #f39c12;
-            background: rgba(243, 156, 18, 0.1);
-            animation: glow 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-
-        @keyframes glow {
-            0%, 100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
-            50% { box-shadow: 0 4px 30px rgba(243, 156, 18, 0.3); }
-        }
-
-        /* 반응형 디자인 */
-        @media (max-width: 768px) {
-            .face {
-                width: 250px;
-                height: 250px;
-            }
-            
-            .eyes {
-                top: 70px;
-                gap: 50px;
-            }
-            
-            .eye {
-                width: 50px;
-                height: 50px;
-            }
-            
-            .pupil {
-                width: 20px;
-                height: 20px;
-            }
-            
-            .mouth {
-                bottom: 70px;
-                width: 70px;
-                height: 35px;
-            }
-        }
+        /* 기본 (happy) */
+        .happy { background: #fff3f9; }
+        .happy .eye { width: 16vw; height: 16vw; background: #fff0f5; }
+        .happy .pupil { width: 8vw; height: 8vw; background: radial-gradient(circle, #222, #000); }
+        .happy .mouth { width: 16vw; height: 9vw; background: #ff82aa; border-radius: 0 0 60% 60% / 0 0 100% 100%; border-bottom: 4px solid #ff3070; transform: translateY(-1vw); }
+        .happy .eyelid { background-color: #ffe6ec; }
+        /* 레이저 ON */
+        .laser-on { background: radial-gradient(circle, #ff6666, #cc0000); }
+        .laser-on .eye { width: 14vw; height: 8vw; background: #ffcccc; border-radius: 50% / 40%; box-shadow: 0 0 18px 5px #ff0000 inset, 0 0 8px rgba(0, 0, 0, 0.4); }
+        .laser-on .pupil { width: 5vw; height: 5vw; background: radial-gradient(circle at 40% 50%, #ff0000, #330000 90%); box-shadow: 0 0 12px 5px #ff0000, inset 0 0 15px 7px #aa0000; }
+        .laser-on .mouth { width: 12vw; height: 3vw; background: #cc2222; box-shadow: 0 0 18px 4px #ff0000 inset, 0 0 6px rgba(0, 0, 0, 0.3); transform: translateY(-1vw); border-radius: 0; }
+        .laser-on .eyelid { background-color: rgba(204, 34, 34, 0.7); border-radius: 50% / 40%; box-shadow: 0 0 15px 5px #cc2222 inset; opacity: 0.75; }
+        /* 공 발사 */
+        .ball-fired { background: radial-gradient(circle, #fff2a6, #ffe066); }
+        .ball-fired .eye { width: 18vw; height: 18vw; background: #fff9c2; box-shadow: 0 0 12px rgba(0, 0, 0, 0.25); }
+        .ball-fired .pupil { width: 10vw; height: 10vw; background: radial-gradient(circle, #aa5500, #552200); }
+        .ball-fired .mouth { width: 8vw; height: 8vw; background: #ffbb33; border-radius: 50%; box-shadow: inset 0 0 10px #ff8800, 0 0 8px rgba(0, 0, 0, 0.3); }
+        .ball-fired .eyelid { background-color: #fff2a6; }
+        /* 밥 나옴 */
+        .food-on { background: radial-gradient(circle, #fff2a6, #ffd966); }
+        .food-on .eye { width: 16vw; height: 16vw; background: #fff8dd; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); }
+        .food-on .pupil { display: none; }
+        .food-on .eye::before, .food-on .eye::after { content: ''; position: absolute; background: #ffcc00; width: 8vw; height: 8vw; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); top: 4vw; filter: drop-shadow(0 0 8px #ffd700); }
+        .food-on .eye::after { right: 0; }
+        .food-on .eye::before { left: 0; }
+        .food-on .mouth { width: 16vw; height: 9vw; background: #ffcc66; border-bottom: 4px solid #eab800; transform: translateY(-1vw); border-radius: 0 0 60% 60% / 0 0 100% 100%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.3); }
+        .food-on .eyelid { background-color: #fff2a6; }
+        /* 버튼 스타일 */
+        .buttons { position: fixed; bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100vw; z-index: 1000; }
+        button { padding: 10px 16px; background: #fff0f5; border: 2px solid #ff99cc; border-radius: 12px; color: #cc3366; font-weight: bold; cursor: pointer; transition: all 0.3s; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); }
+        button:hover { background: #ffccdd; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25); }
+        button.active { background: #ff99cc; color: white; box-shadow: 0 2px 10px #ff99cc; transform: scale(0.97); }
     </style>
 </head>
 
 <body>
+
     <div id="face" class="face happy">
         <div class="eyes">
             <div class="eye">
@@ -314,296 +120,40 @@
         <div class="mouth"></div>
     </div>
 
-    <div id="statusIndicator" class="status-indicator disconnected">
-        🔌 연결되지 않음
+    <div class="buttons">
+        <button onclick="setFace('laser-on')">레이저 ON</button>
+        <button onclick="setFace('ball-fired')">공 발사</button>
+        <button onclick="setFace('food-on')">밥 나옴</button>
+        <button onclick="setFace('happy')">기본 표정</button>
     </div>
 
     <script>
-        // 전역 변수
-        let ws = null;
-        let isConnected = false;
-        let currentState = 'happy';
-        let autoPlayStatus = null;
-        let reconnectTimer = null;
-
-        // WebSocket 관리 클래스
-        class WebSocketManager {
-            constructor() {
-                this.ws = null;
-                this.isConnected = false;
-                this.reconnectAttempts = 0;
-                this.maxReconnectAttempts = 5;
-                this.reconnectDelay = 3000;
-            }
-
-            connect() {
-                try {
-                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const host = window.location.host;
-                    const wsUrl = `${protocol}//${host}/ws`;
-                    
-                    console.log('WebSocket 연결 시도:', wsUrl);
-                    updateStatusIndicator('connecting', '🔄 연결 중...');
-                    
-                    this.ws = new WebSocket(wsUrl);
-                    this.setupEventHandlers();
-                    
-                } catch (error) {
-                    console.error('WebSocket 연결 실패:', error);
-                    updateStatusIndicator('disconnected', '❌ 연결 실패');
-                }
-            }
-
-            setupEventHandlers() {
-                this.ws.onopen = () => {
-                    this.isConnected = true;
-                    isConnected = true;
-                    ws = this.ws;
-                    this.reconnectAttempts = 0;
-                    updateStatusIndicator('connected', '🔗 연결됨');
-                    console.log('WebSocket 연결 성공');
-                };
-
-                this.ws.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        handleWebSocketMessage(data);
-                    } catch (e) {
-                        console.error('메시지 파싱 오류:', e);
-                    }
-                };
-
-                this.ws.onclose = (event) => {
-                    this.isConnected = false;
-                    isConnected = false;
-                    ws = null;
-                    updateStatusIndicator('disconnected', '🔌 연결 해제됨');
-                    console.log('WebSocket 연결 해제됨 (코드:', event.code, '이유:', event.reason, ')');
-                    
-                    this.handleReconnect();
-                };
-
-                this.ws.onerror = (error) => {
-                    console.error('WebSocket 오류:', error);
-                    updateStatusIndicator('disconnected', '❌ 연결 오류');
-                    
-                    if (!this.isConnected) {
-                        console.error('WebSocket 연결 실패 - 서버가 실행 중인지 확인하세요');
-                    }
-                };
-            }
-
-            handleReconnect() {
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.reconnectAttempts++;
-                    console.log(`재연결 시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-                    
-                    reconnectTimer = setTimeout(() => {
-                        this.connect();
-                    }, this.reconnectDelay);
-                } else {
-                    console.error('최대 재연결 시도 횟수 초과');
-                    updateStatusIndicator('disconnected', '❌ 연결 실패 (재시도 중단)');
-                }
-            }
-
-            disconnect() {
-                if (this.ws) {
-                    this.ws.close();
-                }
-                if (reconnectTimer) {
-                    clearTimeout(reconnectTimer);
-                    reconnectTimer = null;
-                }
-            }
-
-            send(message) {
-                if (this.isConnected && this.ws) {
-                    this.ws.send(JSON.stringify(message));
-                } else {
-                    console.error('WebSocket이 연결되지 않았습니다');
-                }
-            }
-        }
-
-        // 표정 관리 클래스
-        class FaceManager {
-            constructor() {
-                this.face = document.getElementById('face');
-                this.currentState = 'happy';
-                this.transitionDuration = 500;
-            }
-
-            setState(newState) {
-                if (this.currentState === newState) return;
-                
-                console.log('표정 변경:', this.currentState, '→', newState);
-                
-                // 기존 클래스 제거
-                this.face.classList.remove(this.currentState);
-                
-                // 새 클래스 추가
-                this.face.classList.add(newState);
-                this.currentState = newState;
-                
-                // 상태별 추가 효과
-                this.applyStateEffects(newState);
-            }
-
-            applyStateEffects(state) {
-                switch (state) {
-                    case 'auto-playing':
-                        this.addGlowEffect();
-                        break;
-                    case 'surprised':
-                        this.addShakeEffect();
-                        break;
-                    case 'sad':
-                        this.addDroopEffect();
-                        break;
-                    default:
-                        this.removeEffects();
-                }
-            }
-
-            addGlowEffect() {
-                this.face.style.boxShadow = `
-                    0 10px 30px rgba(0,0,0,0.3),
-                    inset 0 -10px 20px rgba(0,0,0,0.1),
-                    0 0 30px rgba(243, 156, 18, 0.5)
-                `;
-            }
-
-            addShakeEffect() {
-                this.face.style.animation = 'shake 0.5s ease-in-out';
-                setTimeout(() => {
-                    this.face.style.animation = '';
-                }, 500);
-            }
-
-            addDroopEffect() {
-                this.face.style.transform = 'scale(0.95) rotate(-2deg)';
-            }
-
-            removeEffects() {
-                this.face.style.boxShadow = '';
-                this.face.style.animation = '';
-                this.face.style.transform = '';
-            }
-        }
-
-        // 상태 표시 관리 클래스
-        class StatusManager {
-            constructor() {
-                this.indicator = document.getElementById('statusIndicator');
-            }
-
-            update(status, message) {
-                this.indicator.className = `status-indicator ${status}`;
-                this.indicator.textContent = message;
-            }
-        }
-
-        // 전역 인스턴스
-        const wsManager = new WebSocketManager();
-        const faceManager = new FaceManager();
-        const statusManager = new StatusManager();
-
-        // WebSocket 메시지 처리
-        function handleWebSocketMessage(data) {
-            switch(data.type) {
-                case 'init':
-                    if (data.auto_play_status) {
-                        autoPlayStatus = data.auto_play_status;
-                        updateFaceBasedOnStatus();
-                    }
-                    break;
-                case 'auto_play_status':
-                    autoPlayStatus = data.auto_play_status;
-                    updateFaceBasedOnStatus();
-                    break;
-                case 'auto_play_delay_updated':
-                    console.log('자동 놀이 대기 시간 업데이트:', data.delay);
-                    break;
-                default:
-                    console.log('수신된 메시지:', data.type);
-            }
-        }
-
-        // 상태에 따른 표정 업데이트
-        function updateFaceBasedOnStatus() {
-            if (!autoPlayStatus) {
-                faceManager.setState('happy');
-                statusManager.update('connected', '🔗 연결됨');
-                return;
-            }
-            
-            if (autoPlayStatus.is_auto_playing) {
-                faceManager.setState('auto-playing');
-                statusManager.update('auto-playing', '🎮 자동 놀이 중');
-            } else if (autoPlayStatus.connected_clients > 0) {
-                faceManager.setState('happy');
-                statusManager.update('connected', `🔗 클라이언트 ${autoPlayStatus.connected_clients}명 연결됨`);
-            } else {
-                faceManager.setState('curious');
-                statusManager.update('connected', `⏰ ${autoPlayStatus.auto_play_delay}초 후 자동 놀이 예정`);
-            }
-        }
-
-        // 주기적으로 자동 놀이 상태 조회
-        function pollAutoPlayStatus() {
-            if (isConnected && ws) {
-                wsManager.send({
-                    type: 'get_auto_play_status'
-                });
-            }
-        }
-
-        // 얼굴 클릭 이벤트
-        function setupFaceClick() {
+        function setFace(state) {
             const face = document.getElementById('face');
-            face.addEventListener('click', () => {
-                const states = ['happy', 'surprised', 'curious', 'sad'];
-                const currentIndex = states.indexOf(faceManager.currentState);
-                const nextIndex = (currentIndex + 1) % states.length;
-                faceManager.setState(states[nextIndex]);
+            face.className = 'face ' + state;
+
+            // 버튼 눌림 효과
+            document.querySelectorAll('.buttons button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(getFaceLabel(state))) {
+                    btn.classList.add('active');
+                    setTimeout(() => btn.classList.remove('active'), 300); // 0.3초 후 해제
+                }
             });
         }
 
-        // 페이지 초기화
-        function initialize() {
-            console.log('로봇 디스플레이 페이지 초기화');
-            
-            // WebSocket 연결
-            wsManager.connect();
-            
-            // 얼굴 클릭 이벤트 설정
-            setupFaceClick();
-            
-            // 5초마다 자동 놀이 상태 조회
-            setInterval(pollAutoPlayStatus, 5000);
-        }
-
-        // 페이지 언로드 시 정리
-        function cleanup() {
-            wsManager.disconnect();
-        }
-
-        // 이벤트 리스너 등록
-        window.addEventListener('load', initialize);
-        window.addEventListener('beforeunload', cleanup);
-
-        // CSS 애니메이션 추가
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                25% { transform: translateX(-5px); }
-                75% { transform: translateX(5px); }
+        // 상태명과 버튼 텍스트 매칭 함수
+        function getFaceLabel(state) {
+            switch(state) {
+                case 'laser-on': return '레이저';
+                case 'ball-fired': return '공';
+                case 'food-on': return '밥';
+                case 'happy': return '기본';
+                default: return '';
             }
-        `;
-        document.head.appendChild(style);
+        }
     </script>
+
 </body>
 
 </html>
