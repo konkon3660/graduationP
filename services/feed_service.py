@@ -72,7 +72,7 @@ def _set_angle_sync(angle):
         
         # 서보모터가 움직일 시간을 주기 위해 짧은 대기
         import time
-        time.sleep(0.5)  # 100ms 대기
+        time.sleep(0.1)  # 100ms 대기 (최소한으로)
         
         # PWM 신호 끄기 (중요!)
         pwm.ChangeDutyCycle(0)
@@ -110,7 +110,7 @@ async def feed_once():
         logger.info("🍽 급식 서보모터 동작 시작")
         
         # 비동기로 각도 설정
-        await set_angle_async(90)
+        await set_angle_async(60)
         await asyncio.sleep(0.3)  # 비동기 대기
         await set_angle_async(120)
         await asyncio.sleep(0.2)  # 비동기 대기
@@ -150,13 +150,25 @@ def cleanup():
     except Exception as e:
         logger.error(f"⚠️ 급식 서보모터 정리 중 오류: {e}")
 
-# 기존 동기 함수들 (하위 호환성 유지)
+# 기존 동기 함수들 (하위 호환성 유지) - 비동기로 래핑
 def feed_once_sync():
     """한 번의 급식을 실행합니다. (동기 버전 - 하위 호환성)"""
     print("🍽 서보모터 동작")
-    set_angle(120)
-    # 동기 대기는 최소화
-    import time
-    time.sleep(0.1)
-    set_angle(180)
-    time.sleep(0.1)
+    # 동기 함수를 비동기로 래핑하여 실행
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # 이미 실행 중인 루프가 있으면 새 태스크 생성
+            asyncio.create_task(feed_once())
+        else:
+            # 루프가 없으면 새로 실행
+            loop.run_until_complete(feed_once())
+    except Exception as e:
+        logger.error(f"❌ 급식 실행 실패: {e}")
+        # 폴백: 동기 실행 (최소한의 블로킹)
+        set_angle(90)
+        import time
+        time.sleep(0.1)
+        set_angle(120)
+        time.sleep(0.1)
