@@ -167,8 +167,8 @@ def feed_once_sync():
     except Exception as e:
         logger.error(f"❌ 급식 실행 실패: {e}")
         # 폴백: 동기 실행 (최소한의 블로킹)
-        set_angle(90)
+        set_angle(60)
         import time
         time.sleep(0.2)
-        set_angle(120)
+        set_angle(150)
         time.sleep(0.3)
