@@ -3,6 +3,7 @@ import RPi.GPIO as GPIO
 import asyncio
 import logging
 from typing import Optional
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def init_xy_servo():
 
 def set_servo_angle(angle: int, axis: str = "x"):
     """
-    서보 모터 각도 설정 (비동기 안전 버전)
+    서보 모터 각도 설정 (동기 버전)
     
     Args:
         angle: 0~180도 범위의 각도
@@ -99,8 +100,11 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             x_pwm.ChangeDutyCycle(duty)
             
-            # time.sleep 제거 - 블로킹 방지
-            # 서보모터는 PWM 신호만으로도 충분히 동작함
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기 (동기)
+            time.sleep(0.05)  # 50ms 대기 (최소한으로)
+            
+            # PWM 신호 끄기 (중요!)
+            x_pwm.ChangeDutyCycle(0)
             
             current_x_angle = angle
             logger.info(f"🎯 X축 서보 각도 설정: {angle}도")
@@ -113,8 +117,11 @@ def set_servo_angle(angle: int, axis: str = "x"):
             # 서보모터 제어: PWM 신호 보내기
             y_pwm.ChangeDutyCycle(duty)
             
-            # time.sleep 제거 - 블로킹 방지
-            # 서보모터는 PWM 신호만으로도 충분히 동작함
+            # 서보모터가 움직일 시간을 주기 위해 짧은 대기 (동기)
+            time.sleep(0.05)  # 50ms 대기 (최소한으로)
+            
+            # PWM 신호 끄기 (중요!)
+            y_pwm.ChangeDutyCycle(0)
             
             current_y_angle = angle
             logger.info(f"🎯 Y축 서보 각도 설정: {angle}도")
@@ -139,14 +146,8 @@ async def set_servo_angle_async(angle: int, axis: str = "x"):
         result = await loop.run_in_executor(None, set_servo_angle, angle, axis)
         
         if result:
-            # 서보모터 안정화를 위한 비동기 대기
-            await asyncio.sleep(0.2)  # 200ms 비동기 대기
-            
-            # PWM 신호 끄기 (서보모터 안정화 후)
-            if axis.lower() == "x" and x_pwm:
-                x_pwm.ChangeDutyCycle(0)
-            elif axis.lower() == "y" and y_pwm:
-                y_pwm.ChangeDutyCycle(0)
+            # 서보모터 추가 안정화를 위한 비동기 대기
+            await asyncio.sleep(0.1)  # 100ms 비동기 대기
         
         return result
     except Exception as e:
@@ -195,14 +196,8 @@ async def set_xy_servo_angles_async(x_angle: int, y_angle: int):
         result = await loop.run_in_executor(None, set_xy_servo_angles, x_angle, y_angle)
         
         if result:
-            # 서보모터 안정화를 위한 비동기 대기
-            await asyncio.sleep(0.2)  # 200ms 비동기 대기
-            
-            # PWM 신호 끄기 (서보모터 안정화 후)
-            if x_pwm:
-                x_pwm.ChangeDutyCycle(0)
-            if y_pwm:
-                y_pwm.ChangeDutyCycle(0)
+            # 서보모터 추가 안정화를 위한 비동기 대기
+            await asyncio.sleep(0.1)  # 100ms 비동기 대기
         
         return result
     except Exception as e:
