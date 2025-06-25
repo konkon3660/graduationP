@@ -72,7 +72,7 @@ def _set_angle_sync(angle):
         
         # 서보모터가 움직일 시간을 주기 위해 짧은 대기
         import time
-        time.sleep(0.1)  # 100ms 대기
+        time.sleep(0.5)  # 100ms 대기
         
         # PWM 신호 끄기 (중요!)
         pwm.ChangeDutyCycle(0)
@@ -110,9 +110,9 @@ async def feed_once():
         logger.info("🍽 급식 서보모터 동작 시작")
         
         # 비동기로 각도 설정
-        await set_angle_async(120)
+        await set_angle_async(90)
         await asyncio.sleep(0.3)  # 비동기 대기
-        await set_angle_async(180)
+        await set_angle_async(120)
         await asyncio.sleep(0.2)  # 비동기 대기
         
         logger.info("✅ 급식 완료")

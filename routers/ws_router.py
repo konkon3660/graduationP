@@ -162,7 +162,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     except Exception:
                                         pass
                         # 예: 밥 주기
-                        if command_data.get("type") in ["food", "feed_now", "dispense"]:
+                        if command_data.get("type") in ["food", "feed", "feed_now", "dispense"]:
                             face_msg = {"type": "face", "state": "food-on"}
                             for obs_ws in list(observer_websockets):
                                 try:
@@ -234,7 +234,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     except Exception:
                                         pass
                         # 밥 주기
-                        elif message == "feed_now":
+                        elif message == "feed" or message == "feed_now":
                             face_msg = {"type": "face", "state": "food-on"}
                             logger.info(f"🍚 밥 주기 표정 브로드캐스트 시작")
                             for obs_ws in list(observer_websockets):
