@@ -1,5 +1,6 @@
 # main.py - 업데이트된 메인 서버 (리팩토링된 명령 서비스 적용)
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routers.ws_router import router as ws_router
 from routers.ws_audio_receive import router as audio_receive_router
 from routers.mjpeg_router import router as mjpeg_router  
@@ -11,6 +12,15 @@ from services.auto_play_service import auto_play_service
 from services.audio_playback_service import audio_playback_service
 
 app = FastAPI()
+
+# CORS 설정 (WebSocket 포함)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 실제 운영시에는 도메인 제한 권장
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 공유 인스턴스 등록
 app.state.mic_sender = mic_sender
@@ -27,6 +37,10 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 async def root():
     return HTMLResponse(content=open("index.html", "r", encoding="utf-8").read())
 
+# 헬스체크 엔드포인트 추가
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "서버가 정상 동작 중입니다"}
 
 # ✅ 라우터 등록
 print("🔌 WebSocket 라우터 등록 중...")
@@ -76,7 +90,12 @@ async def startup_event():
     
     # 자동 놀이 서비스 상태 출력
     auto_play_status = auto_play_service.get_status()
-    print(f"🎮 자동 놀이 서비스 초기화됨 (대기시간: {auto_play_status['auto_play_delay']}초)")
+    print(f"🎮 자동 놀이 서비스 초기화됨:")
+    print(f"   - 대기시간: {auto_play_status['auto_play_delay']}초")
+    print(f"   - 연결된 클라이언트: {auto_play_status['connected_clients']}명")
+    print(f"   - 자동 놀이 상태: {'실행 중' if auto_play_status['is_auto_playing'] else '대기 중'}")
+    print(f"   - 태스크 상태: {auto_play_status['task_status']}")
+    print(f"   - 모터 속도: {auto_play_status['motor_speed']}")
     
     # 오디오 재생 서비스 상태 출력
     audio_status = audio_playback_service.get_status()

@@ -380,8 +380,19 @@
             border-left: 4px solid #dc3545;
         }
         
+        .status-indicator.connecting {
+            border-left: 4px solid #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+        
         .status-indicator.auto-playing {
             border-left: 4px solid #ffc107;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
@@ -416,12 +427,17 @@
             try {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const host = window.location.host;
-                ws = new WebSocket(`${protocol}//${host}/ws`);
+                const wsUrl = `${protocol}//${host}/ws`;
+                
+                console.log('WebSocket 연결 시도:', wsUrl);
+                updateStatusIndicator('connecting', '🔄 연결 중...');
+                
+                ws = new WebSocket(wsUrl);
                 
                 ws.onopen = function() {
                     isConnected = true;
                     updateStatusIndicator('connected', '🔗 연결됨');
-                    console.log('WebSocket 연결됨');
+                    console.log('WebSocket 연결 성공');
                 };
                 
                 ws.onmessage = function(event) {
@@ -433,10 +449,10 @@
                     }
                 };
                 
-                ws.onclose = function() {
+                ws.onclose = function(event) {
                     isConnected = false;
                     updateStatusIndicator('disconnected', '🔌 연결 해제됨');
-                    console.log('WebSocket 연결 해제됨');
+                    console.log('WebSocket 연결 해제됨 (코드:', event.code, '이유:', event.reason, ')');
                     
                     // 3초 후 재연결 시도
                     setTimeout(connectWebSocket, 3000);
@@ -445,10 +461,16 @@
                 ws.onerror = function(error) {
                     console.error('WebSocket 오류:', error);
                     updateStatusIndicator('disconnected', '❌ 연결 오류');
+                    
+                    // 연결 실패 시 사용자에게 알림
+                    if (!isConnected) {
+                        console.error('WebSocket 연결 실패 - 서버가 실행 중인지 확인하세요');
+                    }
                 };
                 
             } catch (error) {
                 console.error('WebSocket 연결 실패:', error);
+                updateStatusIndicator('disconnected', '❌ 연결 실패');
             }
         }
         
