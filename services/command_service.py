@@ -203,20 +203,23 @@ class CommandHandler:
             return False
 
     # === 급식 제어 ===
-    async def handle_feed_once(self):
+    def handle_feed_once(self):
         """급식 한 번 실행"""
         try:
-            await feed_once()
+            # 동기 버전 사용 (하위 호환성)
+            feed_once()
             logger.info("🍽 급식 실행 완료")
             return True
         except Exception as e:
             logger.error(f"❌ 급식 실행 실패: {e}")
             return False
 
-    async def handle_feed_multiple(self, count: int):
+    def handle_feed_multiple(self, count: int):
         """급식 여러 번 실행"""
         try:
-            await feed_multiple(count)
+            # 동기 버전 사용 (하위 호환성)
+            for i in range(count):
+                feed_once()
             logger.info(f"🍽 {count}회 급식 실행 완료")
             return True
         except Exception as e:
@@ -265,39 +268,11 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
         
         # === 급식 명령 ===
         if cmd == "feed":
-            success = await command_handler.handle_feed_once()
-            # observer들에게 표정 변경 알림
-            if success:
-                try:
-                    from routers.ws_router import observer_websockets
-                    face_msg = {"type": "face", "state": "food-on"}
-                    for obs_ws in list(observer_websockets):
-                        try:
-                            await obs_ws.send_text(json.dumps(face_msg))
-                            logger.info(f"🟢 observer에게 표정(food-on) 전송")
-                        except Exception as e:
-                            logger.warning(f"❌ observer 전송 실패: {e}")
-                except Exception as e:
-                    logger.error(f"❌ 표정 변경 알림 실패: {e}")
-            return success
+            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
         elif cmd.startswith("feed:"):
             try:
                 count = int(cmd.split(":")[1])
-                success = await command_handler.handle_feed_multiple(count)
-                # observer들에게 표정 변경 알림
-                if success:
-                    try:
-                        from routers.ws_router import observer_websockets
-                        face_msg = {"type": "face", "state": "food-on"}
-                        for obs_ws in list(observer_websockets):
-                            try:
-                                await obs_ws.send_text(json.dumps(face_msg))
-                                logger.info(f"🟢 observer에게 표정(food-on) 전송")
-                            except Exception as e:
-                                logger.warning(f"❌ observer 전송 실패: {e}")
-                    except Exception as e:
-                        logger.error(f"❌ 표정 변경 알림 실패: {e}")
-                return success
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
             except (IndexError, ValueError):
                 logger.error(f"급식 횟수 파싱 오류: {cmd}")
                 return False
@@ -411,22 +386,16 @@ async def handle_json_command(command_data: dict) -> bool:
         logger.info(f"📨 JSON 명령 수신: {command_type}")
         
         # === 급식 관련 JSON 명령 ===
-        if command_type in ["feed", "food", "feed_now", "dispense"]:
-            success = await command_handler.handle_feed_once()
-            # observer들에게 표정 변경 알림
-            if success:
-                try:
-                    from routers.ws_router import observer_websockets
-                    face_msg = {"type": "face", "state": "food-on"}
-                    for obs_ws in list(observer_websockets):
-                        try:
-                            await obs_ws.send_text(json.dumps(face_msg))
-                            logger.info(f"🟢 observer에게 표정(food-on) 전송")
-                        except Exception as e:
-                            logger.warning(f"❌ observer 전송 실패: {e}")
-                except Exception as e:
-                    logger.error(f"❌ 표정 변경 알림 실패: {e}")
-            return success
+        if command_type == "feed":
+            action = command_data.get("action", "").lower()
+            if action == "once":
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
+            elif action == "multiple":
+                count = command_data.get("count", 1)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
+            else:
+                # 기본 동작: 한 번 급식
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
         
         elif command_type == "feed_servo":
             # 급식용 서보모터 제어 (GPIO 18)
@@ -448,8 +417,7 @@ async def handle_json_command(command_data: dict) -> bool:
             elif action == "xy":
                 x = command_data.get("x", 90)
                 y = command_data.get("y", 90)
-                # 비동기 XY 서보 제어 사용
-                return await set_xy_servo_angles_async(x, y)
+                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_xy, x, y)
             elif action == "x":
                 x = command_data.get("x", 90)
                 return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_laser_x, x)
