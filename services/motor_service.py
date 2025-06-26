@@ -16,7 +16,7 @@ DEFAULT_SPEED = 100  # 항상 100%로 동작
 
 
 def init_motor():
-    """모터 핀 설정 (최초 1회만 호출)"""
+    """모터 핀 설정 (최초 1회만 호출)"""    
     global _initialized
     if _initialized:
         return True

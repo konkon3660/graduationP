@@ -19,7 +19,7 @@ from services.xy_servo import (
 from services.sol_service import fire as solenoid_fire
 from services.feed_service import (
     feed_once, feed_multiple, set_angle,
-    feed_once_sync, cleanup as feed_cleanup
+    cleanup as feed_cleanup
 )
 from services.ultrasonic_service import get_distance, get_distance_data, cleanup_ultrasonic
 
@@ -203,23 +203,20 @@ class CommandHandler:
             return False
 
     # === 급식 제어 ===
-    def handle_feed_once(self):
+    async def handle_feed_once(self):
         """급식 한 번 실행"""
         try:
-            # 동기 버전 사용 (하위 호환성)
-            feed_once_sync()
+            await feed_once()
             logger.info("🍽 급식 실행 완료")
             return True
         except Exception as e:
             logger.error(f"❌ 급식 실행 실패: {e}")
             return False
 
-    def handle_feed_multiple(self, count: int):
+    async def handle_feed_multiple(self, count: int):
         """급식 여러 번 실행"""
         try:
-            # 동기 버전 사용 (하위 호환성)
-            for i in range(count):
-                feed_once_sync()
+            await feed_multiple(count)
             logger.info(f"🍽 {count}회 급식 실행 완료")
             return True
         except Exception as e:
@@ -268,11 +265,11 @@ async def handle_command_async(command: Union[str, dict]) -> bool:
         
         # === 급식 명령 ===
         if cmd == "feed":
-            return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
+            return await command_handler.handle_feed_once()
         elif cmd.startswith("feed:"):
             try:
                 count = int(cmd.split(":")[1])
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
+                return await command_handler.handle_feed_multiple(count)
             except (IndexError, ValueError):
                 logger.error(f"급식 횟수 파싱 오류: {cmd}")
                 return False
@@ -389,13 +386,13 @@ async def handle_json_command(command_data: dict) -> bool:
         if command_type == "feed":
             action = command_data.get("action", "").lower()
             if action == "once":
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_once)
+                return await command_handler.handle_feed_once()
             elif action == "multiple":
                 count = command_data.get("count", 1)
-                return await asyncio.get_event_loop().run_in_executor(_executor, command_handler.handle_feed_multiple, count)
+                return await command_handler.handle_feed_multiple(count)
             else:
-                logger.warning(f"알 수 없는 급식 액션: {action}")
-                return False
+                # 기본 동작: 한 번 급식
+                return await command_handler.handle_feed_once()
         
         elif command_type == "feed_servo":
             # 급식용 서보모터 제어 (GPIO 18)
