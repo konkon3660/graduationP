@@ -3,6 +3,9 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter
 from services.auto_play_service import auto_play_service
 from services.audio_playback_service import audio_playback_service
+from services.feed_service import feed_multiple
+from services.settings_service import settings_service
+from services.feed_scheduler import feed_scheduler
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -32,7 +35,9 @@ class SettingsWebSocketRouter:
                 "audio": {
                     "volume": audio_playback_service.get_volume(),
                     "available_sounds": audio_playback_service.get_available_sounds()
-                }
+                },
+                "feed": settings_service.get_settings(),
+                "scheduler": feed_scheduler.get_status()
             }
             await websocket.send_text(json.dumps(status))
         except Exception as e:
@@ -50,32 +55,81 @@ class SettingsWebSocketRouter:
         """메시지 처리"""
         try:
             data = json.loads(message)
+            logger.info(f"🔧 설정 명령 수신: {data}")
+            
+            # 급식 명령 처리
+            if "mode" in data:
+                try:
+                    # 설정 업데이트
+                    new_settings = {
+                        "mode": data["mode"],
+                        "amount": int(data.get("amount", 1)),
+                    }
+                    
+                    if data["mode"] == "auto" and "interval" in data:
+                        new_settings["interval"] = int(data["interval"])
+                    
+                    # 설정 저장
+                    settings_service.update_settings(new_settings)
+                    
+                    if data["mode"] == "auto":
+                        # 자동 모드 시작
+                        await feed_scheduler.start()
+                        feed_scheduler.reset_schedule()  # 스케줄 초기화
+                    else:
+                        # 수동 모드: amount만큼 급식
+                        await feed_multiple(new_settings["amount"])
+                        # 자동 스케줄러 중지
+                        await feed_scheduler.stop()
+                    
+                    # 상태 브로드캐스트
+                    await self.broadcast_status()
+                    
+                    # 성공 응답
+                    await websocket.send_text(json.dumps({
+                        "type": "settings_updated",
+                        "settings": settings_service.get_settings(),
+                        "success": True
+                    }))
+                    
+                    # observer들에게 표정 변경 알림
+                    from routers.ws_router import observer_websockets
+                    face_msg = {"type": "face", "state": "food-on"}
+                    for obs_ws in list(observer_websockets):
+                        try:
+                            await obs_ws.send_text(json.dumps(face_msg))
+                            logger.info(f"🟢 observer에게 표정(food-on) 전송")
+                        except Exception as e:
+                            logger.warning(f"❌ observer 전송 실패: {e}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ 급식 설정 처리 실패: {e}")
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": f"급식 설정 처리 실패: {str(e)}",
+                        "success": False
+                    }))
+                return
+            
+            # 기존 명령 처리
             command = data.get("command")
-            
-            logger.info(f"🔧 설정 명령 수신: {command}")
-            
             if command == "get_status":
                 await self.send_status(websocket)
-                
             elif command == "set_auto_play_delay":
                 delay = data.get("delay", 70)
                 auto_play_service.set_auto_play_delay(delay)
                 await self.broadcast_status()
-                
             elif command == "set_motor_speed":
                 speed = data.get("speed", 60)
                 auto_play_service.set_motor_speed(speed)
                 await self.broadcast_status()
-                
             elif command == "set_audio_volume":
                 volume = data.get("volume", 0.5)
                 audio_playback_service.set_volume(volume)
                 await self.broadcast_status()
-                
             elif command == "play_sound":
                 sound_type = data.get("sound_type", "excited")
                 audio_playback_service.play_sound(sound_type)
-                
             elif command == "test_motor_forward":
                 from services.motor_service import move_forward, stop_motors
                 speed = data.get("speed", 60)

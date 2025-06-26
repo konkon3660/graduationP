@@ -17,6 +17,7 @@ pwm = None
 _initialized = False
 _gpio_initialized = False
 feeding_lock = asyncio.Lock()
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 def _init_gpio():
     """GPIO 초기화 (한 번만 실행)"""
@@ -57,8 +58,8 @@ def init_feed_servo():
         cleanup()
         return False
 
-def set_angle(angle):
-    """서보모터 각도 설정 (동기 버전)"""
+async def set_angle(angle):
+    """서보모터 각도 설정 (비동기)"""
     try:
         if not init_feed_servo():
             logger.error("❌ 서보모터 초기화 실패")
@@ -73,59 +74,38 @@ def set_angle(angle):
             logger.warning(f"⚠️ 듀티사이클 {duty}%는 비정상입니다.")
             return False
         
-        pwm.ChangeDutyCycle(duty)
-        import time
-        time.sleep(0.1)
-        pwm.ChangeDutyCycle(0)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, pwm.ChangeDutyCycle, duty)
+        await asyncio.sleep(0.1)
+        await loop.run_in_executor(_executor, pwm.ChangeDutyCycle, 0)
         logger.info(f"✅ 급식 서보 각도 설정: {angle}도")
         return True
     except Exception as e:
         logger.error(f"❌ 급식 서보 각도 설정 실패: {e}")
         return False
 
-async def set_angle_async(angle):
-    """서보모터 각도 설정 (비동기 래퍼)"""
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, set_angle, angle)
-        await asyncio.sleep(0.5)
-        return result
-    except Exception as e:
-        logger.error(f"❌ 비동기 급식 서보 제어 실패: {e}")
-        return False
-
-def feed_once_sync():
-    """급식 한 번 실행 (동기 버전)"""
-    try:
-        logger.info("🍽 급식 서보모터 동작 시작")
-        if not set_angle(30):
-            logger.error("❌ 첫 번째 각도 설정 실패")
-            return False
-        import time
-        time.sleep(0.3)
-        if not set_angle(150):
-            logger.error("❌ 두 번째 각도 설정 실패")
-            return False
-        time.sleep(0.2)
-        logger.info("✅ 급식 완료")
-        return True
-    except Exception as e:
-        logger.error(f"❌ 급식 실행 실패: {e}")
-        return False
-
 async def feed_once():
-    """급식 한 번 실행 (비동기 래퍼)"""
+    """급식 한 번 실행 (비동기)"""
     global feeding_lock
     async with feeding_lock:
         try:
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, feed_once_sync)
-            return result
+            logger.info("🍽 급식 서보모터 동작 시작")
+            if not await set_angle(30):
+                logger.error("❌ 첫 번째 각도 설정 실패")
+                return False
+            await asyncio.sleep(0.3)
+            if not await set_angle(150):
+                logger.error("❌ 두 번째 각도 설정 실패")
+                return False
+            await asyncio.sleep(0.2)
+            logger.info("✅ 급식 완료")
+            return True
         except Exception as e:
-            logger.error(f"❌ 비동기 급식 실행 실패: {e}")
+            logger.error(f"❌ 급식 실행 실패: {e}")
             return False
 
 async def feed_multiple(count: int):
+    """여러 번 급식 실행 (비동기)"""
     global feeding_lock
     async with feeding_lock:
         try:
@@ -145,13 +125,14 @@ async def feed_multiple(count: int):
 
 def cleanup():
     """급식 서보모터 리소스 정리"""
-    global pwm, _initialized
+    global pwm, _initialized, _executor
     
     try:
         if pwm:
             pwm.stop()
             pwm = None
         _initialized = False
+        _executor.shutdown(wait=False)
         logger.info("🧹 급식 서보모터 정리 완료")
     except Exception as e:
         logger.error(f"⚠️ 급식 서보모터 정리 중 오류: {e}")

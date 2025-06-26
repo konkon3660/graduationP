@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from services.settings_service import settings_service
 from services.feed_service import feed_once
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,22 @@ class FeedScheduler:
                     # 설정된 양만큼 급식 실행
                     for i in range(amount):
                         logger.info(f"🍽 급식 실행 {i+1}/{amount}")
-                        feed_once()
+                        await feed_once()
                         if i < amount - 1:  # 마지막이 아니면 잠시 대기
                             await asyncio.sleep(1)
+                    
+                    # observer들에게 표정 변경 알림
+                    try:
+                        from routers.ws_router import observer_websockets
+                        face_msg = {"type": "face", "state": "food-on"}
+                        for obs_ws in list(observer_websockets):
+                            try:
+                                await obs_ws.send_text(json.dumps(face_msg))
+                                logger.info(f"🟢 observer에게 표정(food-on) 전송")
+                            except Exception as e:
+                                logger.warning(f"❌ observer 전송 실패: {e}")
+                    except Exception as e:
+                        logger.error(f"❌ 표정 변경 알림 실패: {e}")
                     
                     # 다음 급식 시간 설정
                     self.next_feed_time = now + timedelta(minutes=interval)
