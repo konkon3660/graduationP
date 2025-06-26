@@ -5,6 +5,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from services.settings_service import settings_service
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -56,68 +57,72 @@ def init_feed_servo():
         cleanup()
         return False
 
-def _set_angle_sync(angle):
-    """서보모터 각도 설정 (순수 동기 함수 - run_in_executor용)"""
+def set_angle(angle):
+    """서보모터 각도 설정 (동기 버전)"""
     try:
-        if pwm is None:
-            logger.error("PWM 객체가 초기화되지 않음")
+        if not init_feed_servo():
+            logger.error("❌ 서보모터 초기화 실패")
             return False
-            
+        
+        if pwm is None:
+            logger.error("❌ PWM 객체가 초기화되지 않음")
+            return False
+        
         duty = angle / 18 + 2
         if duty < 2 or duty > 12:
             logger.warning(f"⚠️ 듀티사이클 {duty}%는 비정상입니다.")
             return False
-            
-        # 서보모터 제어: PWM 신호 보내기
+        
         pwm.ChangeDutyCycle(duty)
-        
-        # 서보모터가 움직일 시간을 주기 위해 짧은 대기
         import time
-        time.sleep(0.1)  # 100ms 대기 (최소한으로)
-        
-        # PWM 신호 끄기 (중요!)
+        time.sleep(0.1)
         pwm.ChangeDutyCycle(0)
-        
-        logger.debug(f"급식 서보 각도 설정: {angle}도")
+        logger.info(f"✅ 급식 서보 각도 설정: {angle}도")
         return True
     except Exception as e:
         logger.error(f"❌ 급식 서보 각도 설정 실패: {e}")
         return False
 
-def set_angle(angle):
-    """서보모터 각도 설정 (동기 래퍼 - 하위 호환성)"""
-    if not init_feed_servo():
-        return False
-    return _set_angle_sync(angle)
-
 async def set_angle_async(angle):
-    """서보모터 각도 설정 (비동기 버전)"""
+    """서보모터 각도 설정 (비동기 래퍼)"""
     try:
-        if not init_feed_servo():
-            return False
-            
-        # 비동기 실행자에서 동기 함수 호출
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _set_angle_sync, angle)
-        
+        result = await loop.run_in_executor(None, set_angle, angle)
+        await asyncio.sleep(0.5)
         return result
     except Exception as e:
         logger.error(f"❌ 비동기 급식 서보 제어 실패: {e}")
         return False
 
+def feed_once_sync():
+    """급식 한 번 실행 (동기 버전)"""
+    try:
+        logger.info("🍽 급식 서보모터 동작 시작")
+        if not set_angle(30):
+            logger.error("❌ 첫 번째 각도 설정 실패")
+            return False
+        import time
+        time.sleep(0.3)
+        if not set_angle(150):
+            logger.error("❌ 두 번째 각도 설정 실패")
+            return False
+        time.sleep(0.2)
+        logger.info("✅ 급식 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 실행 실패: {e}")
+        return False
+
 async def feed_once():
+    """급식 한 번 실행 (비동기 래퍼)"""
     global feeding_lock
     async with feeding_lock:
         try:
-            logger.info("🍽 급식 서보모터 동작 시작")
-            await set_angle_async(60)
-            await asyncio.sleep(0.3)
-            await set_angle_async(120)
-            await asyncio.sleep(0.2)
-            logger.info("✅ 급식 완료")
-            return True
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, feed_once_sync)
+            return result
         except Exception as e:
-            logger.error(f"❌ 급식 실행 실패: {e}")
+            logger.error(f"❌ 비동기 급식 실행 실패: {e}")
             return False
 
 async def feed_multiple(count: int):
@@ -128,7 +133,10 @@ async def feed_multiple(count: int):
             for i in range(count):
                 if i > 0:
                     await asyncio.sleep(0.2)
-                await feed_once()
+                success = await feed_once()
+                if not success:
+                    logger.error(f"❌ {i+1}번째 급식 실패")
+                    return False
             logger.info(f"✅ {count}회 급식 완료")
             return True
         except Exception as e:
@@ -148,25 +156,14 @@ def cleanup():
     except Exception as e:
         logger.error(f"⚠️ 급식 서보모터 정리 중 오류: {e}")
 
-# 기존 동기 함수들 (하위 호환성 유지) - 비동기로 래핑
-def feed_once_sync():
-    """한 번의 급식을 실행합니다. (동기 버전 - 하위 호환성)"""
-    print("🍽 서보모터 동작")
-    # 동기 함수를 비동기로 래핑하여 실행
-    import asyncio
+def get_feed_status():
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # 이미 실행 중인 루프가 있으면 새 태스크 생성
-            asyncio.create_task(feed_once())
-        else:
-            # 루프가 없으면 새로 실행
-            loop.run_until_complete(feed_once())
+        # TODO: 실제 센서값/잔량 판단 로직으로 교체
+        # 예시: feed_level = read_sensor()
+        # if feed_level < 임계값:
+        #     return {"status": "empty"}
+        # else:
+        #     return {"status": "ok"}
+        return {"status": "ok", "message": "정상"}
     except Exception as e:
-        logger.error(f"❌ 급식 실행 실패: {e}")
-        # 폴백: 동기 실행 (최소한의 블로킹)
-        set_angle(60)
-        import time
-        time.sleep(0.1)
-        set_angle(120)
-        time.sleep(0.1)
+        return {"status": "error", "message": str(e)}
