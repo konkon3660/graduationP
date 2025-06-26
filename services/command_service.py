@@ -206,8 +206,8 @@ class CommandHandler:
     def handle_feed_once(self):
         """급식 한 번 실행"""
         try:
-            # 동기 버전 사용 (하위 호환성)
-            feed_once()
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(feed_once())
             logger.info("🍽 급식 실행 완료")
             return True
         except Exception as e:
@@ -217,9 +217,8 @@ class CommandHandler:
     def handle_feed_multiple(self, count: int):
         """급식 여러 번 실행"""
         try:
-            # 동기 버전 사용 (하위 호환성)
-            for i in range(count):
-                feed_once()
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(feed_multiple(count))
             logger.info(f"🍽 {count}회 급식 실행 완료")
             return True
         except Exception as e:
