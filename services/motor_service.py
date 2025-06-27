@@ -129,3 +129,46 @@ def cleanup():
 
 import atexit
 atexit.register(cleanup)
+
+def camera_capture_thread():
+    global cap, latest_frame, capture_thread_running
+    logger.info("📹 카메라 캡처 스레드 시작")
+    frame_time = 1.0 / 30  # 30fps
+    while capture_thread_running:
+        if cap is None:
+            break
+        start_time = time.time()
+        ret, frame = cap.read()
+        if not ret:
+            continue
+        with lock:
+            latest_frame = frame
+        # 정확한 프레임 타이밍 계산
+        elapsed = time.time() - start_time
+        if elapsed < frame_time:
+            time.sleep(frame_time - elapsed)
+
+def feed_once_sync():
+    """급식 한 번 실행 (동기 버전)"""
+    try:
+        if not init_feed_servo():
+            logger.error("❌ 서보모터 초기화 실패")
+            return False
+            
+        # 30도로 이동 (더 짧은 대기 시간)
+        duty = 30 / 18 + 2
+        pwm.ChangeDutyCycle(duty)
+        time.sleep(0.2)  # 0.3 -> 0.2
+        pwm.ChangeDutyCycle(0)
+        
+        # 150도로 이동 (더 짧은 대기 시간)
+        duty = 150 / 18 + 2
+        pwm.ChangeDutyCycle(duty)
+        time.sleep(0.15)  # 0.2 -> 0.15
+        pwm.ChangeDutyCycle(0)
+        
+        logger.info("✅ 급식 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 실행 실패: {e}")
+        return False
