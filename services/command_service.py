@@ -19,7 +19,7 @@ from services.xy_servo import (
 from services.sol_service import fire as solenoid_fire
 from services.feed_service import (
     feed_once, feed_multiple, set_angle,
-    cleanup as feed_cleanup
+    cleanup as feed_cleanup, feed_once_sync
 )
 from services.ultrasonic_service import get_distance, get_distance_data, cleanup_ultrasonic
 
@@ -206,11 +206,7 @@ class CommandHandler:
     def handle_feed_once(self):
         """급식 한 번 실행"""
         try:
-            # 동기 함수로 변환하여 실행
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(feed_once())
-            loop.close()
+            feed_once_sync()  # 동기 버전 사용
             logger.info("🍽 급식 실행 완료")
             return True
         except Exception as e:
@@ -220,11 +216,8 @@ class CommandHandler:
     def handle_feed_multiple(self, count: int):
         """급식 여러 번 실행"""
         try:
-            # 동기 함수로 변환하여 실행
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(feed_multiple(count))
-            loop.close()
+            for _ in range(count):
+                feed_once_sync()  # 동기 버전 반복 실행
             logger.info(f"🍽 {count}회 급식 실행 완료")
             return True
         except Exception as e:

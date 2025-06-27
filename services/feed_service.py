@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from services.settings_service import settings_service
 import concurrent.futures
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -148,3 +149,28 @@ def get_feed_status():
         return {"status": "ok", "message": "정상"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+def feed_once_sync():
+    """급식 한 번 실행 (동기 버전)"""
+    try:
+        if not init_feed_servo():
+            logger.error("❌ 서보모터 초기화 실패")
+            return False
+            
+        # 30도로 이동
+        duty = 30 / 18 + 2
+        pwm.ChangeDutyCycle(duty)
+        time.sleep(0.3)
+        pwm.ChangeDutyCycle(0)
+        
+        # 150도로 이동
+        duty = 150 / 18 + 2
+        pwm.ChangeDutyCycle(duty)
+        time.sleep(0.2)
+        pwm.ChangeDutyCycle(0)
+        
+        logger.info("✅ 급식 완료")
+        return True
+    except Exception as e:
+        logger.error(f"❌ 급식 실행 실패: {e}")
+        return False
