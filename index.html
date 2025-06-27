@@ -164,12 +164,54 @@
             const data = JSON.parse(event.data);
             console.log('📨 웹소켓 메시지:', data);
             
-            if (data.type === 'face') {
-                setFace(data.state);
+            try {
+                // 서버에서 직접 표정 상태를 보내는 경우
+                if (data.type === 'face' && data.state) {
+                    console.log('🎭 표정 변경 명령 수신:', data.state);
+                    setFace(data.state);
+                    return;
+                }
+
+                // 초음파 센서 데이터 처리
+                if (data.type === 'ultrasonic') {
+                    document.getElementById('ultrasonic-value').textContent = data.distance + 'cm';
+                    return;
+                }
+
+                // 명령 처리 결과에 따라 표정 변경
+                if (data.success && data.command) {
+                    console.log('명령 처리 결과:', data.command);
+                    // 객체 명령(JSON)
+                    if (typeof data.command === 'object') {
+                        if (data.command.type === 'laser' && data.command.action === 'on') setFace('laser-on');
+                        if (data.command.type === 'laser' && data.command.action === 'off') setFace('happy');
+                        if (data.command.type === 'fire' || data.command.type === 'solenoid') setFace('ball-fired');
+                        if (data.command.type === 'food' || data.command.type === 'feed_now' || data.command.type === 'dispense') setFace('food-on');
+                    }
+                    // 문자열 명령
+                    if (typeof data.command === 'string') {
+                        if (data.command.includes('laser_on')) setFace('laser-on');
+                        if (data.command.includes('laser_off')) setFace('happy');
+                        if (data.command.includes('fire')) setFace('ball-fired');
+                        if (data.command.includes('feed') || data.command.includes('food')) setFace('food-on');
+                    }
+                }
+
+                // 자동 놀이 상태에 따라 표정 변경
+                if (data.type === 'init' || data.type === 'auto_play_status') {
+                    if (data.auto_play_status) {
+                        if (data.auto_play_status.is_auto_playing) setFace('happy');
+                    }
+                }
+            } catch (e) {
+                console.error('❌ 메시지 처리 중 오류:', e);
             }
-            else if (data.type === 'ultrasonic') {
-                document.getElementById('ultrasonic-value').textContent = data.distance + 'cm';
-            }
+        };
+
+        // WebSocket 연결 시 observer로 등록
+        ws.onopen = function() {
+            ws.send(JSON.stringify({ type: "register", role: "observer" }));
+            console.log('🔄 WebSocket 연결됨 - observer 등록');
         };
         
         ws.onclose = function() {
