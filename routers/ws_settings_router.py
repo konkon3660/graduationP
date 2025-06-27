@@ -85,12 +85,8 @@ class SettingsWebSocketRouter:
                     # 상태 브로드캐스트
                     await self.broadcast_status()
                     
-                    # 성공 응답
-                    await websocket.send_text(json.dumps({
-                        "type": "settings_updated",
-                        "settings": settings_service.get_settings(),
-                        "success": True
-                    }))
+                    # 안드로이드 앱을 위한 ack 응답
+                    await websocket.send_text(f"ack:settings_updated")
                     
                     # observer들에게 표정 변경 알림
                     from routers.ws_router import observer_websockets
@@ -104,11 +100,7 @@ class SettingsWebSocketRouter:
                     
                 except Exception as e:
                     logger.error(f"❌ 급식 설정 처리 실패: {e}")
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": f"급식 설정 처리 실패: {str(e)}",
-                        "success": False
-                    }))
+                    await websocket.send_text(f"ack:error:{str(e)}")
                 return
             
             # 기존 명령 처리
