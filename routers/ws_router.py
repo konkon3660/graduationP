@@ -198,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             for obs_ws in list(observer_websockets):
                                 try:
                                     await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
-                                    logger.info(f"🟢 observer에게 표정(laser-on) 전송: {obs_ws}")
+                                    logger.info(f"🟢 observer에게 표정(laser-on) 전송")
                                 except Exception as e:
                                     logger.warning(f"❌ observer 전송 실패: {e}")
                                     try:
@@ -208,39 +208,36 @@ async def websocket_endpoint(websocket: WebSocket):
                         # 레이저 OFF
                         elif message == "laser_off":
                             face_msg = {"type": "face", "state": "happy"}
-                            logger.info(f"😊 레이저 OFF 표정 브로드캐스트 시작")
                             for obs_ws in list(observer_websockets):
                                 try:
                                     await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
-                                    logger.info(f"🟢 observer에게 표정(happy) 전송: {obs_ws}")
+                                    logger.info(f"🟢 observer에게 표정(happy) 전송")
                                 except Exception as e:
                                     logger.warning(f"❌ observer 전송 실패: {e}")
                                     try:
                                         observer_websockets.discard(obs_ws)
                                     except Exception:
                                         pass
-                        # 솔레노이드/공 발사
+                        # 급식 명령
+                        elif message == "feed" or message.startswith("feed:"):
+                            face_msg = {"type": "face", "state": "food-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
+                                    logger.info(f"🟢 observer에게 표정(food-on) 전송")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                                    try:
+                                        observer_websockets.discard(obs_ws)
+                                    except Exception:
+                                        pass
+                        # 발사 명령
                         elif message == "fire":
                             face_msg = {"type": "face", "state": "ball-fired"}
-                            logger.info(f"🎯 공 발사 표정 브로드캐스트 시작")
                             for obs_ws in list(observer_websockets):
                                 try:
                                     await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
-                                    logger.info(f"🟢 observer에게 표정(ball-fired) 전송: {obs_ws}")
-                                except Exception as e:
-                                    logger.warning(f"❌ observer 전송 실패: {e}")
-                                    try:
-                                        observer_websockets.discard(obs_ws)
-                                    except Exception:
-                                        pass
-                        # 밥 주기
-                        elif message == "feed" or message == "feed_now":
-                            face_msg = {"type": "face", "state": "food-on"}
-                            logger.info(f"🍚 밥 주기 표정 브로드캐스트 시작")
-                            for obs_ws in list(observer_websockets):
-                                try:
-                                    await obs_ws.send_text(json.dumps(face_msg, ensure_ascii=False))
-                                    logger.info(f"🟢 observer에게 표정(food-on) 전송: {obs_ws}")
+                                    logger.info(f"🟢 observer에게 표정(ball-fired) 전송")
                                 except Exception as e:
                                     logger.warning(f"❌ observer 전송 실패: {e}")
                                     try:

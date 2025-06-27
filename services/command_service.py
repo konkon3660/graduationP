@@ -208,22 +208,6 @@ class CommandHandler:
         try:
             feed_once_sync()  # 동기 버전 사용
             logger.info("🍽 급식 실행 완료")
-            
-            # observer들에게 표정 변경 알림
-            try:
-                from routers.ws_router import observer_websockets
-                face_msg = {"type": "face", "state": "food-on"}
-                for obs_ws in list(observer_websockets):
-                    try:
-                        asyncio.get_event_loop().run_until_complete(
-                            obs_ws.send_text(json.dumps(face_msg))
-                        )
-                        logger.info(f"🟢 observer에게 표정(food-on) 전송")
-                    except Exception as e:
-                        logger.warning(f"❌ observer 전송 실패: {e}")
-            except Exception as e:
-                logger.error(f"❌ 표정 변경 알림 실패: {e}")
-            
             return True
         except Exception as e:
             logger.error(f"❌ 급식 실행 실패: {e}")
@@ -235,22 +219,6 @@ class CommandHandler:
             for _ in range(count):
                 feed_once_sync()  # 동기 버전 반복 실행
             logger.info(f"🍽 {count}회 급식 실행 완료")
-            
-            # observer들에게 표정 변경 알림
-            try:
-                from routers.ws_router import observer_websockets
-                face_msg = {"type": "face", "state": "food-on"}
-                for obs_ws in list(observer_websockets):
-                    try:
-                        asyncio.get_event_loop().run_until_complete(
-                            obs_ws.send_text(json.dumps(face_msg))
-                        )
-                        logger.info(f"🟢 observer에게 표정(food-on) 전송")
-                    except Exception as e:
-                        logger.warning(f"❌ observer 전송 실패: {e}")
-            except Exception as e:
-                logger.error(f"❌ 표정 변경 알림 실패: {e}")
-            
             return True
         except Exception as e:
             logger.error(f"❌ 다중 급식 실행 실패: {e}")
