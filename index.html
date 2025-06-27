@@ -120,12 +120,6 @@
         <div class="mouth"></div>
     </div>
 
-    <!-- 비동기 카메라 스트림 -->
-    <div id="camera-container" style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: none;">
-        <img id="camera-stream" src="/mjpeg" alt="카메라 스트림" style="width: 320px; height: 240px; border: 2px solid #ff99cc; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
-        <button onclick="toggleCamera()" style="position: absolute; top: -30px; right: 0; padding: 5px 10px; background: #ff99cc; color: white; border: none; border-radius: 5px; cursor: pointer;">카메라 ON/OFF</button>
-    </div>
-
     <div class="buttons">
         <button onclick="setFace('laser-on')">레이저 ON</button>
         <button onclick="setFace('ball-fired')">공 발사</button>
@@ -163,136 +157,28 @@
             }
         }
 
-        // 카메라 토글 함수
-        function toggleCamera() {
-            const container = document.getElementById('camera-container');
-            const stream = document.getElementById('camera-stream');
+        // 웹소켓 연결
+        const ws = new WebSocket('ws://' + location.host + '/ws');
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('📨 웹소켓 메시지:', data);
             
-            if (container.style.display === 'none') {
-                // 카메라 켜기
-                container.style.display = 'block';
-                stream.src = '/mjpeg';
-                console.log('📹 카메라 스트림 시작');
-            } else {
-                // 카메라 끄기
-                container.style.display = 'none';
-                stream.src = '';
-                console.log('📹 카메라 스트림 중지');
+            if (data.type === 'face') {
+                setFace(data.state);
             }
-        }
-
-        // 카메라 정보 조회 함수
-        async function getCameraInfo() {
-            try {
-                const response = await fetch('/camera-info');
-                const info = await response.json();
-                console.log('📹 카메라 정보:', info);
-                return info;
-            } catch (error) {
-                console.error('❌ 카메라 정보 조회 실패:', error);
-                return null;
+            else if (data.type === 'ultrasonic') {
+                document.getElementById('ultrasonic-value').textContent = data.distance + 'cm';
             }
-        }
-
-        // 카메라 초기화 함수
-        async function initializeCamera() {
-            try {
-                const response = await fetch('/camera/initialize', { method: 'POST' });
-                const result = await response.json();
-                console.log('📹 카메라 초기화 결과:', result);
-                return result.success;
-            } catch (error) {
-                console.error('❌ 카메라 초기화 실패:', error);
-                return false;
-            }
-        }
-
-        // 사진 촬영 함수
-        async function capturePhoto() {
-            try {
-                const response = await fetch('/camera/capture', { method: 'POST' });
-                const result = await response.json();
-                console.log('📸 사진 촬영 결과:', result);
-                return result.success;
-            } catch (error) {
-                console.error('❌ 사진 촬영 실패:', error);
-                return false;
-            }
-        }
-
-        // WebSocket 초음파 센서 값 표시 예시
-        // ws는 WebSocket 인스턴스라고 가정
-        let ws;
-        window.addEventListener('load', async () => {
-            // 카메라 자동 초기화
-            console.log('📹 카메라 초기화 시작...');
-            const cameraInitSuccess = await initializeCamera();
-            if (cameraInitSuccess) {
-                console.log('📹 카메라 초기화 성공');
-                // 카메라 정보 조회
-                await getCameraInfo();
-            } else {
-                console.warn('⚠️ 카메라 초기화 실패');
-            }
-
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host;
-            ws = new WebSocket(protocol + '//' + host + '/ws');
-            ws.onopen = function() {
-                // 관찰자 등록 메시지 (observer)
-                ws.send(JSON.stringify({ type: "register", role: "observer" }));
-            };
-            ws.onmessage = function(event) {
-                let msg = event.data;
-                console.log('📨 WebSocket 메시지 수신:', msg);
-                try {
-                    const data = JSON.parse(msg);
-                    if (data.type === 'ultrasonic') {
-                        if (data.distance !== undefined) {
-                            document.getElementById('ultrasonic-value').textContent = '초음파: ' + data.distance + ' cm';
-                        } else if (data.error) {
-                            document.getElementById('ultrasonic-value').textContent = '초음파 에러: ' + data.error;
-                        }
-                        return;
-                    }
-                    // 서버에서 표정 상태를 직접 보내는 경우
-                    if (data.type === 'face' && data.state) {
-                        console.log('🎭 표정 변경 명령 수신:', data.state);
-                        setFace(data.state);
-                        return;
-                    }
-                    // 명령 처리 결과에 따라 표정 변경 (객체/문자열 모두 대응)
-                    if (data.success && data.command) {
-                        console.log('명령 처리 결과:', data.command);
-                        // 객체 명령(JSON)
-                        if (typeof data.command === 'object') {
-                            if (data.command.type === 'laser' && data.command.action === 'on') setFace('laser-on');
-                            if (data.command.type === 'laser' && data.command.action === 'off') setFace('happy');
-                            if (data.command.type === 'fire' || data.command.type === 'solenoid') setFace('ball-fired');
-                            if (data.command.type === 'food' || data.command.type === 'feed_now' || data.command.type === 'dispense') setFace('food-on');
-                        }
-                        // 문자열 명령
-                        if (typeof data.command === 'string') {
-                            if (data.command.includes('laser_on')) setFace('laser-on');
-                            if (data.command.includes('laser_off')) setFace('happy');
-                            if (data.command.includes('fire')) setFace('ball-fired');
-                            if (data.command.includes('feed') || data.command.includes('food')) setFace('food-on');
-                        }
-                    }
-                    // 자동 놀이 상태에 따라 표정 변경 (예: init, auto_play_status)
-                    if (data.type === 'init' || data.type === 'auto_play_status') {
-                        if (data.auto_play_status) {
-                            if (data.auto_play_status.is_auto_playing) setFace('happy');
-                            // 필요시 다른 상태별 표정 추가
-                        }
-                    }
-                    // ... 기존 JSON 메시지 처리 ...
-                } catch (e) {
-                    console.log('❌ JSON 파싱 실패:', e);
-                    // 기타 메시지 무시
-                }
-            };
-        });
+        };
+        
+        ws.onclose = function() {
+            console.log('❌ 웹소켓 연결 끊김');
+        };
+        
+        ws.onerror = function(error) {
+            console.error('❌ 웹소켓 오류:', error);
+        };
     </script>
 
 </body>
