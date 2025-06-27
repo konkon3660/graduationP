@@ -5,6 +5,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.command_service import handle_command_async
 from services.ultrasonic_service import get_distance_data
 from services.auto_play_service import auto_play_service
+from services.settings_service import settings_service
+from services.feed_scheduler import feed_scheduler
+from services.feed_service import feed_multiple
 import asyncio
 import weakref
 
@@ -100,6 +103,49 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_text(json.dumps(response, ensure_ascii=False))
                         logger.info(f"📏 초음파 센서 데이터 전송: {response}")
                         continue
+
+                    # 급식 설정 명령 처리
+                    if "mode" in command_data:
+                        try:
+                            # 설정 업데이트
+                            new_settings = {
+                                "mode": command_data["mode"],
+                                "amount": int(command_data.get("amount", 1)),
+                            }
+                            
+                            if command_data["mode"] == "auto" and "interval" in command_data:
+                                new_settings["interval"] = int(command_data["interval"])
+                            
+                            # 설정 저장
+                            settings_service.update_settings(new_settings)
+                            
+                            if command_data["mode"] == "auto":
+                                # 자동 모드 시작
+                                await feed_scheduler.start()
+                                feed_scheduler.reset_schedule()  # 스케줄 초기화
+                            else:
+                                # 수동 모드: amount만큼 급식
+                                await feed_multiple(new_settings["amount"])
+                                # 자동 스케줄러 중지
+                                await feed_scheduler.stop()
+                            
+                            # 안드로이드 앱을 위한 ack 응답
+                            await websocket.send_text(f"ack:settings_updated")
+                            
+                            # observer들에게 표정 변경 알림
+                            face_msg = {"type": "face", "state": "food-on"}
+                            for obs_ws in list(observer_websockets):
+                                try:
+                                    await obs_ws.send_text(json.dumps(face_msg))
+                                    logger.info(f"🟢 observer에게 표정(food-on) 전송")
+                                except Exception as e:
+                                    logger.warning(f"❌ observer 전송 실패: {e}")
+                            
+                            continue
+                        except Exception as e:
+                            logger.error(f"❌ 급식 설정 처리 실패: {e}")
+                            await websocket.send_text(f"ack:error:{str(e)}")
+                            continue
 
                     # JSON 명령 처리
                     try:
