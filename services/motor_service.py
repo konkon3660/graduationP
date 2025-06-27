@@ -2,6 +2,8 @@
 import RPi.GPIO as GPIO
 import logging
 import time
+import cv2
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -172,3 +174,32 @@ def feed_once_sync():
     except Exception as e:
         logger.error(f"❌ 급식 실행 실패: {e}")
         return False
+
+def start_capture(width=320, height=240, fps=15):
+    global cap, capture_thread, capture_thread_running, active_connections
+
+    # 이전 자원 정리
+    _force_release_camera()
+
+    active_connections += 1
+    logger.info(f"📹 카메라 연결 요청 (활성 연결: {active_connections})")
+
+    if capture_thread_running and capture_thread and capture_thread.is_alive():
+        logger.info("📹 이미 스트리밍 중 - 기존 자원 사용")
+        return
+
+    cap = wait_for_camera_ready("/dev/video0")
+    if not cap:
+        logger.error("❌ 카메라 열기 실패")
+        return
+
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기 최소화
+
+    capture_thread_running = True
+    capture_thread = threading.Thread(target=camera_capture_thread, daemon=True)
+    capture_thread.start()
+    logger.info(f"📹 카메라 스트리밍 시작 ({width}x{height} @{fps}fps)")
