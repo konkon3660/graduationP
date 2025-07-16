@@ -30,8 +30,7 @@ class CommandHandler:
     
     def __init__(self):
         self.is_initialized = False
-        self.current_servo_angle = 90  # 현재 서보 각도 추적
-        
+        self.current_servo_angle = 90  # 현재 서보 각도 추적  
     def initialize(self):
         """하드웨어 초기화"""
         if not self.is_initialized:
@@ -41,7 +40,6 @@ class CommandHandler:
                 self.is_initialized = True
             except Exception as e:
                 logger.error(f"❌ 하드웨어 초기화 실패: {e}")
-    
     def reset(self):
         """모든 하드웨어 리셋"""
         try:
@@ -55,7 +53,6 @@ class CommandHandler:
             logger.info("🔄 하드웨어 리셋 완료")
         except Exception as e:
             logger.error(f"❌ 하드웨어 리셋 실패: {e}")
-    
     def cleanup(self):
         """리소스 정리"""
         try:
@@ -66,7 +63,6 @@ class CommandHandler:
             logger.info("🧹 하드웨어 정리 완료")
         except Exception as e:
             logger.error(f"⚠️ 하드웨어 정리 중 오류: {e}")
-
     # === 레이저 제어 ===
     def handle_laser_on(self):
         """레이저 켜기"""
@@ -77,7 +73,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 ON 실패: {e}")
             return False
-    
     def handle_laser_off(self):
         """레이저 끄기"""
         try:
@@ -87,7 +82,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 OFF 실패: {e}")
             return False
-
     def handle_laser_x(self, x: int):
         """X축만 제어"""
         try:
@@ -95,7 +89,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 X축 제어 실패: {e}")
             return False
-
     def handle_laser_y(self, y: int):
         """Y축만 제어"""
         try:
@@ -103,7 +96,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 Y축 제어 실패: {e}")
             return False
-
     def handle_laser_xy(self, x: int, y: int):
         """레이저 XY 좌표 제어 (서보 각도로 변환)"""
         try:
@@ -111,7 +103,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 XY 제어 실패: {e}")
             return False
-
     # === 모터 제어 ===
     def handle_motor_command(self, direction: str, speed: int = 70):
         """모터 제어 (방향별)"""
@@ -125,11 +116,11 @@ class CommandHandler:
                 set_right_motor(speed, 1)  # 후진
                 set_left_motor(speed, 1)
             elif direction == "left":
-                set_right_motor(speed, 0)  # 좌회전
-                set_left_motor(speed, 1)
-            elif direction == "right":
-                set_right_motor(speed, 1)  # 우회전
+                set_right_motor(speed, 1)  # 좌회전
                 set_left_motor(speed, 0)
+            elif direction == "right":
+                set_right_motor(speed, 0)  # 우회전
+                set_left_motor(speed, 1)
             elif direction == "stop":
                 stop_motors()
             else:
@@ -141,7 +132,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 모터 제어 실패 ({direction}): {e}")
             return False
-
     # === 서보 제어 ===
     def handle_servo_angle(self, angle: int):
         """서보 각도 제어"""
@@ -158,7 +148,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 서보 제어 실패: {e}")
             return False
-
     def handle_feed_servo_angle(self, angle: int):
         """급식용 서보모터 각도 제어 (GPIO 18)"""
         try:
@@ -174,7 +163,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 급식 서보 제어 실패: {e}")
             return False
-
     def handle_laser_servo_angle(self, angle: int):
         """레이저용 서보모터 각도 제어 (GPIO 19, 13)"""
         try:
@@ -190,7 +178,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 레이저 서보 제어 실패: {e}")
             return False
-
     # === 솔레노이드 제어 ===
     def handle_fire(self):
         """발사 장치 동작"""
@@ -201,7 +188,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 솔레노이드 발사 실패: {e}")
             return False
-
     # === 급식 제어 ===
     def handle_feed_once(self):
         """급식 한 번 실행"""
@@ -212,7 +198,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 급식 실행 실패: {e}")
             return False
-
     def handle_feed_multiple(self, count: int):
         """급식 여러 번 실행"""
         try:
@@ -223,7 +208,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 다중 급식 실행 실패: {e}")
             return False
-
     # === 초음파 센서 제어 ===
     def handle_get_distance(self):
         """거리 측정"""
@@ -238,7 +222,6 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"❌ 거리 측정 실패: {e}")
             return False
-
     def handle_get_distance_data(self):
         """거리 데이터 반환 (클라이언트 전송용)"""
         try:

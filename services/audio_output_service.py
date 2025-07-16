@@ -8,16 +8,13 @@ class AudioOutputManager:
         self.pyaudio_instance = None
         self.is_initialized = False
         self.lock = threading.Lock()
-        
     def initialize(self):
         with self.lock:
             if self.is_initialized:
                 return
-                
             try:
                 # PyAudio 초기화
                 self.pyaudio_instance = pyaudio.PyAudio()
-                
                 # 출력 스트림 생성
                 self.output_stream = self.pyaudio_instance.open(
                     format=pyaudio.paInt16,
@@ -26,14 +23,11 @@ class AudioOutputManager:
                     output=True,
                     frames_per_buffer=2048
                 )
-                
                 self.is_initialized = True
                 print("✅ [AUDIO_OUTPUT] 오디오 출력 스트림 초기화 완료")
-                
             except Exception as e:
                 print(f"❌ [AUDIO_OUTPUT] 초기화 실패: {e}")
                 self.cleanup()
-    
     def cleanup(self):
         with self.lock:
             try:
@@ -49,7 +43,6 @@ class AudioOutputManager:
                 self.pyaudio_instance = None
                 self.is_initialized = False
                 print("🛑 [AUDIO_OUTPUT] 오디오 출력 스트림 정리 완료")
-    
     def play_chunk(self, chunk):
         if not self.is_initialized:
             self.initialize()

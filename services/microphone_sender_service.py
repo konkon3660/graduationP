@@ -25,15 +25,12 @@ class MicrophoneSender:
         self.running = False
         self.task = None
         self.clients = set()
-
     def register(self, websocket):
         self.clients.add(websocket)
         print(f"✅ 클라이언트 등록됨 (총 {len(self.clients)}명)")
-
     def unregister(self, websocket):
         self.clients.discard(websocket)
         print(f"❎ 클라이언트 해제됨 (총 {len(self.clients)}명)")
-
     async def broadcast(self, data: bytes):
         if not get_audio_streaming():
             return
@@ -45,7 +42,6 @@ class MicrophoneSender:
                 disconnected.append(ws)
         for ws in disconnected:
             self.clients.discard(ws)
-
     def find_input_device(self, p):
         for i in range(p.get_device_count()):
             info = p.get_device_info_by_index(i)
@@ -54,22 +50,18 @@ class MicrophoneSender:
                 return i
         print("❌ 사용 가능한 마이크 장치 없음")
         return None
-
     async def _run(self):
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
         RATE = 16000
         CHUNK = 1024
-
         suppress_ctx = suppress_alsa_errors()
         suppress_ctx.__enter__()  # ALSA 로그 제거 시작
-
         p = pyaudio.PyAudio()
         index = self.find_input_device(p)
         if index is None:
             suppress_ctx.__exit__(None, None, None)  # 로그 제거 종료
             return
-
         try:
             stream = p.open(format=FORMAT,
                             channels=CHANNELS,
@@ -78,7 +70,6 @@ class MicrophoneSender:
                             input_device_index=index,
                             frames_per_buffer=CHUNK)
             print("🎤 서버 마이크 송출 시작")
-
             while self.running:
                 data = stream.read(CHUNK, exception_on_overflow=False)
                 await self.broadcast(data)
@@ -92,13 +83,11 @@ class MicrophoneSender:
             p.terminate()
             suppress_ctx.__exit__(None, None, None)  # 로그 제거 종료
             print("🛑 마이크 송출 종료")
-
     def start(self):
         if not self.running:
             print("🚀 마이크 송출 태스크 시작")
             self.running = True
             self.task = asyncio.create_task(self._run())
-
     def stop(self):
         if self.running:
             self.running = False
