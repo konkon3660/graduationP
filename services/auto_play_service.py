@@ -555,6 +555,15 @@ class AutoPlayService:
         """모터 속도 설정"""
         self.motor_speed = max(0, min(100, speed))
         logger.info(f"🚗 모터 속도 변경: {self.motor_speed}")
+    
+    async def start_service(self):
+        """서비스 시작 (초기화)"""
+        if not hasattr(self, 'auto_play_running'):
+            self.auto_play_running = False
+        if not hasattr(self, 'is_auto_playing'):
+            self.is_auto_playing = False
+        logger.info("🔄 자동 놀이 서비스 초기화 완료")
+        return True
 
 # 전역 인스턴스
-auto_play_service = AutoPlayService() 
+auto_play_service = AutoPlayService()

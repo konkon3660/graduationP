@@ -133,9 +133,23 @@ print("settings_router 등록 완료")
 # FastAPI 앱 시작 시 모니터링 시작
 @app.on_event("startup")
 async def startup_event():
-    # 기존 startup_event 내용은 여기로 이동
+    """서버 시작 시 실행"""
+    print("🚀 서버 시작 중...")
+    
+    # 연결 모니터링 시작
     await connection_manager.start_monitoring()
-    print("WebSocket 연결 모니터링 시작")
+    
+    # 오디오 재생 서비스 시작
+    await audio_playback_service.start_service()
+    
+    # 자동 놀이 서비스 초기화 및 시작
+    try:
+        await auto_play_service.start_service()
+        print("✅ 자동 놀이 서비스 시작 완료")
+    except Exception as e:
+        print(f"❌ 자동 놀이 서비스 시작 실패: {e}")
+    
+    print("✅ 서버 시작 완료") 
     print("서버 시작 완료 (하드웨어 제어 모드)")
     print("사용 가능한 엔드포인트:")
     print("   - /ws (제어 명령)")
