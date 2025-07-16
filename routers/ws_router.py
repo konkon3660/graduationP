@@ -94,7 +94,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     # 초음파 센서 데이터 요청인지 확인
                     if command_data.get("type") == "ultrasonic" and command_data.get("action") in ["get_distance", "get_distance_data"]:
-                        distance_data = get_distance_data()
+                        # 비동기로 초음파 센서 데이터 가져오기
+                        distance_data = await get_distance_data()
                         if distance_data.get("distance") is not None:
                             response = {"type": "ultrasonic", "distance": distance_data["distance"]}
                         else:

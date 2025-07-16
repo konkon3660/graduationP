@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 import time
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,33 +26,34 @@ class UltrasonicSensor:
         except Exception as e:
             logger.error(f"❌ 초음파 센서 핀 초기화 실패: {e}")
             
-    def measure_distance(self):
+    async def measure_distance(self):
         """거리 측정 (cm 단위)"""
         try:
             # TRIG 핀을 HIGH로 설정하여 초음파 발사
             GPIO.output(self.trig_pin, GPIO.HIGH)
-            time.sleep(0.00001)  # 10 마이크로초 대기
+            await asyncio.sleep(0.00001)  # 10 마이크로초 비동기 대기
             GPIO.output(self.trig_pin, GPIO.LOW)
             
             # ECHO 핀이 HIGH가 될 때까지 대기 (초음파 발사 시작)
             start_time = time.time()
             while GPIO.input(self.echo_pin) == GPIO.LOW:
-                start_time = time.time()
                 if time.time() - start_time > 1:  # 1초 타임아웃
                     logger.warning("⚠️ 초음파 센서 타임아웃 (발사)")
                     return None
+                await asyncio.sleep(0.001)  # CPU 사용량을 줄이기 위한 짧은 대기
             
             # ECHO 핀이 LOW가 될 때까지 대기 (초음파 수신 완료)
-            stop_time = time.time()
+            pulse_start = time.time()
             while GPIO.input(self.echo_pin) == GPIO.HIGH:
-                stop_time = time.time()
                 if time.time() - start_time > 1:  # 1초 타임아웃
                     logger.warning("⚠️ 초음파 센서 타임아웃 (수신)")
                     return None
+                pulse_end = time.time()
+                await asyncio.sleep(0.001)  # CPU 사용량을 줄이기 위한 짧은 대기
             
             # 거리 계산 (음속: 343m/s, 왕복 거리이므로 2로 나눔)
-            duration = stop_time - start_time
-            distance = (duration * 34300) / 2  # cm 단위
+            pulse_duration = pulse_end - pulse_start
+            distance = (pulse_duration * 34300) / 2  # cm 단위
             
             # 유효한 거리 범위 확인 (2cm ~ 400cm)
             if 2 <= distance <= 400:
@@ -65,9 +67,9 @@ class UltrasonicSensor:
             logger.error(f"❌ 거리 측정 실패: {e}")
             return None
     
-    def get_distance_data(self):
+    async def get_distance_data(self):
         """클라이언트 전송용 거리 데이터 반환"""
-        distance = self.measure_distance()
+        distance = await self.measure_distance()
         if distance is not None:
             return {
                 "type": "ultrasonic_distance",
@@ -111,12 +113,12 @@ async def handle_ultrasonic_command(command_data, websocket):
     if (
         command_data.get("type") == "ultrasonic" and command_data.get("action") in ["get_distance", "get_distance_data"]
     ):
-        # 거리 데이터 측정 및 전송
-        distance_data = get_distance_data()
+        # 거리 데이터 측정 및 전송 (비동기로 대기)
+        distance_data = await ultrasonic_sensor.get_distance_data()
         if distance_data.get("distance") is not None:
             response_text = f"distance: {distance_data['distance']}"
         else:
             error_msg = distance_data.get("error", "측정 실패")
             response_text = f"error: {error_msg}"
         await websocket.send_text(response_text)
-        logger.info(f"📏 초음파 센서 데이터 전송: {response_text}") 
+        logger.info(f"📏 초음파 센서 데이터 전송: {response_text}")
