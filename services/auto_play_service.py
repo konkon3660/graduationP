@@ -306,6 +306,102 @@ class AutoPlayService:
             await asyncio.sleep(random.uniform(0.3, 0.8))
     
     async def _dance_pattern(self):
+        """춤 패턴"""
+        logger.info("💃 춤 패턴 시작")
+        try:
+            for _ in range(random.randint(2, 4)):
+                if not self.auto_play_running:
+                    break
+                turn_left(self.motor_speed)
+                await asyncio.sleep(1.0)
+                stop_motors()
+                turn_right(self.motor_speed)
+                logger.info("➡️ 우회전")
+                await asyncio.sleep(1.0)
+                stop_motors()
+                await asyncio.sleep(0.5)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 춤 패턴 실행 중 오류: {e}")
+            stop_motors()
+            return False
+
+    async def _laser_play_pattern(self):
+        """레이저 놀이 패턴"""
+        logger.info("🎯 레이저 놀이 패턴 시작")
+        try:
+            patterns = [
+                self._circle_pattern,
+                self._figure_eight_pattern,
+                self._random_movement_pattern,
+                self._wave_pattern,
+                self._spiral_pattern,
+                self._zigzag_pattern,
+                self._heart_pattern
+            ]
+            num_patterns = random.randint(2, 4)
+            for _ in range(num_patterns):
+                if not self.auto_play_running:
+                    break
+                pattern = random.choice(patterns)
+                await pattern()
+                audio_playback_service.play_sound("next_pattern")
+                await asyncio.sleep(1)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 레이저 패턴 실행 중 오류: {e}")
+            return False
+
+    async def _mobile_play_pattern(self):
+        """이동 놀이 패턴"""
+        logger.info("🚗 이동 놀이 패턴 시작")
+        try:
+            for _ in range(random.randint(3, 6)):
+                if not self.auto_play_running:
+                    break
+                action = random.choice(["forward", "turn"])
+                if action == "forward":
+                    await self._safe_move_forward(random.uniform(0.5, 1.5))
+                else:
+                    await self._safe_turn()
+                await asyncio.sleep(random.uniform(0.5, 1.5))
+            return True
+        except Exception as e:
+            logger.error(f"❌ 이동 패턴 실행 중 오류: {e}")
+            return False
+
+    async def _solenoid_play_pattern(self):
+        """솔레노이드 놀이 패턴"""
+        logger.info("🔥 솔레노이드 놀이 패턴 시작")
+        try:
+            for i in range(random.randint(2, 4)):
+                if not self.auto_play_running:
+                    break
+                fire()
+                logger.info(f"🔥 솔레노이드 발사 {i+1}회")
+                await asyncio.sleep(random.uniform(1.0, 2.0))
+            return True
+        except Exception as e:
+            logger.error(f"❌ 솔레노이드 패턴 실행 중 오류: {e}")
+            return False
+
+    async def _exploration_pattern(self):
+        """탐험 패턴"""
+        logger.info("🔍 탐험 패턴 시작")
+        try:
+            for _ in range(random.randint(4, 8)):
+                if not self.auto_play_running:
+                    break
+                await self._safe_turn()
+                await self._safe_move_forward(random.uniform(0.3, 0.8))
+                await asyncio.sleep(random.uniform(0.3, 0.8))
+            return True
+        except Exception as e:
+            logger.error(f"❌ 탐험 패턴 실행 중 오류: {e}")
+            return False
+
+    async def _dance_pattern(self):
+        """춤 패턴"""
         logger.info("💃 춤 패턴 시작")
         for _ in range(random.randint(2, 4)):
             if not self.auto_play_running:
@@ -317,87 +413,48 @@ class AutoPlayService:
             await asyncio.sleep(1.0)
             stop_motors()
             await asyncio.sleep(0.5)
-    
-    # 기존 레이저 패턴들 (수정 없음)
+
     async def _play_pattern(self):
-        """놀이 패턴 실행"""
+        """놀이 패턴 실행 (순차적 반복)"""
         patterns = [
-            self._circle_pattern,
-            self._figure_eight_pattern,
-            self._random_movement_pattern,
-            self._wave_pattern,
-            self._spiral_pattern,
-            self._zigzag_pattern,
-            self._heart_pattern
+            (self._circle_pattern, self._move_forward_backward, "원 모양 레이저 + 전후진"),
+            (self._figure_eight_pattern, self._turn_left_right, "8자 모양 레이저 + 좌우회전"),
+            (self._random_movement_pattern, self._random_motor_pattern, "무작위 레이저 + 무작위 이동"),
+            (self._wave_pattern, self._wave_motor_pattern, "파도 모양 레이저 + 파도 이동"),
+            (self._spiral_pattern, self._spiral_motor_pattern, "나선형 레이저 + 나선형 이동"),
+            (self._zigzag_pattern, self._zigzag_motor_pattern, "지그재그 레이저 + 지그재그 이동"),
+            (self._heart_pattern, self._heart_motor_pattern, "하트 모양 레이저 + 하트 이동")
         ]
         
-        # 랜덤하게 패턴 선택
-        pattern = random.choice(patterns)
-        await pattern()
+        pattern_index = 0
         
-        # 패턴 간 잠시 대기
-        await asyncio.sleep(random.uniform(2, 5))
-    
-    async def _circle_pattern(self):
-        """원 그리기 패턴"""
-        logger.info("⭕ 원 그리기 패턴 시작")
-        
-        center_x, center_y = 90, 90
-        radius = random.randint(20, 40)
-        
-        for angle in range(0, 360, 8):
-            if not self.auto_play_running:
-                break
+        while self.auto_play_running:
+            try:
+                # 현재 패턴 가져오기
+                laser_pattern, motor_pattern, pattern_name = patterns[pattern_index]
+                logger.info(f"🔄 패턴 시작 ({pattern_index+1}/{len(patterns)}): {pattern_name}")
                 
-            rad = math.radians(angle)
-            x = center_x + radius * math.cos(rad)
-            y = center_y + radius * math.sin(rad)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
-    
-    async def _figure_eight_pattern(self):
-        """8자 그리기 패턴"""
-        logger.info("8️⃣ 8자 그리기 패턴 시작")
-        
-        center_x, center_y = 90, 90
-        radius = 25
-        
-        # 첫 번째 원 (위쪽)
-        for angle in range(0, 360, 10):
-            if not self.auto_play_running:
-                break
+                # 레이저 패턴과 모터 패턴을 동시에 실행
+                await asyncio.gather(
+                    laser_pattern(),
+                    motor_pattern()
+                )
                 
-            rad = math.radians(angle)
-            x = center_x + radius * math.cos(rad)
-            y = center_y - radius + radius * math.sin(rad)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
-        
-        # 두 번째 원 (아래쪽)
-        for angle in range(0, 360, 10):
-            if not self.auto_play_running:
-                break
+                # 다음 패턴으로 이동
+                pattern_index = (pattern_index + 1) % len(patterns)
                 
-            rad = math.radians(angle)
-            x = center_x - radius + radius * math.cos(rad)
-            y = center_y + radius * math.sin(rad)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
+                # 패턴 간 대기 (음성 안내 후 대기)
+                if self.auto_play_running:
+                    audio_playback_service.play_sound("next_pattern")
+                    await asyncio.sleep(2)  # 다음 패턴 준비 시간
+                    
+            except asyncio.CancelledError:
+                logger.info("⏹ 패턴 실행 취소됨")
+                break
+            except Exception as e:
+                logger.error(f"❌ 패턴 실행 중 오류: {e}")
+                pattern_index = (pattern_index + 1) % len(patterns)  # 오류 발생 시 다음 패턴으로
+                await asyncio.sleep(1)  # 오류 후 잠시 대기
     
     async def _random_movement_pattern(self):
         """랜덤 움직임 패턴"""
@@ -432,98 +489,238 @@ class AutoPlayService:
     async def _wave_pattern(self):
         """파도 패턴"""
         logger.info("🌊 파도 패턴 시작")
-        
-        center_x, center_y = 90, 90
-        amplitude = random.randint(15, 30)
-        frequency = random.uniform(0.5, 1.5)
-        
-        for i in range(0, 200, 3):
-            if not self.auto_play_running:
-                break
+        try:
+            center_x, center_y = 90, 90
+            amplitude = random.randint(15, 30)
+            frequency = random.uniform(0.5, 1.5)
+            
+            for i in range(0, 200, 3):
+                if not self.auto_play_running:
+                    break
+                    
+                x = center_x + i * 0.5
+                y = center_y + amplitude * math.sin(i * frequency * 0.1)
                 
-            x = center_x + i * 0.5
-            y = center_y + amplitude * math.sin(i * frequency * 0.1)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
+                x = max(0, min(180, x))
+                y = max(0, min(180, y))
+                
+                # 비동기 서보 제어 사용
+                await set_xy_servo_angles_async(int(x), int(y))
+                await asyncio.sleep(0.05)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 파도 패턴 실행 중 오류: {e}")
+            return False
     
     async def _spiral_pattern(self):
         """나선 패턴"""
         logger.info("🌀 나선 패턴 시작")
-        
-        center_x, center_y = 90, 90
-        
-        for i in range(0, 150, 2):
-            if not self.auto_play_running:
-                break
+        try:
+            center_x, center_y = 90, 90
+            
+            for i in range(0, 150, 2):
+                if not self.auto_play_running:
+                    break
+                    
+                angle = i * 8
+                radius = i * 0.3
                 
-            angle = i * 8
-            radius = i * 0.3
-            
-            rad = math.radians(angle)
-            x = center_x + radius * math.cos(rad)
-            y = center_y + radius * math.sin(rad)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
+                rad = math.radians(angle)
+                x = center_x + radius * math.cos(rad)
+                y = center_y + radius * math.sin(rad)
+                
+                x = max(0, min(180, x))
+                y = max(0, min(180, y))
+                
+                # 비동기 서보 제어 사용
+                await set_xy_servo_angles_async(int(x), int(y))
+                await asyncio.sleep(0.05)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 나선 패턴 실행 중 오류: {e}")
+            return False
     
     async def _zigzag_pattern(self):
         """지그재그 패턴"""
         logger.info("⚡ 지그재그 패턴 시작")
-        
-        start_x, start_y = 30, 30
-        width = 120
-        height = 120
-        
-        for i in range(0, width, 5):
-            if not self.auto_play_running:
-                break
+        try:
+            start_x, start_y = 30, 30
+            width = 120
+            height = 120
+            
+            for i in range(0, width, 5):
+                if not self.auto_play_running:
+                    break
+                    
+                x = start_x + i
+                y = start_y + (i % 20) * (height / 20)
                 
-            x = start_x + i
-            y = start_y + (i % 20) * (height / 20)
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
+                x = max(0, min(180, x))
+                y = max(0, min(180, y))
+                
+                # 비동기 서보 제어 사용
+                await set_xy_servo_angles_async(int(x), int(y))
+                await asyncio.sleep(0.05)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 지그재그 패턴 실행 중 오류: {e}")
+            return False
     
     async def _heart_pattern(self):
         """하트 패턴"""
         logger.info("💖 하트 패턴 시작")
-        
-        center_x, center_y = 90, 90
-        scale = 20
-        
-        for angle in range(0, 360, 5):
-            if not self.auto_play_running:
-                break
+        try:
+            center_x, center_y = 90, 90
+            scale = 20
+            
+            for angle in range(0, 360, 5):
+                if not self.auto_play_running:
+                    break
+                    
+                rad = math.radians(angle)
                 
-            rad = math.radians(angle)
+                # 하트 방정식
+                x = 16 * math.sin(rad) ** 3
+                y = -(13 * math.cos(rad) - 5 * math.cos(2*rad) - 2 * math.cos(3*rad) - math.cos(4*rad))
+                
+                # 스케일링 및 이동
+                x = center_x + x * scale
+                y = center_y + y * scale
+                
+                x = max(0, min(180, x))
+                y = max(0, min(180, y))
+                
+                # 비동기 서보 제어 사용
+                await set_xy_servo_angles_async(int(x), int(y))
+                await asyncio.sleep(0.05)
+            return True
+        except Exception as e:
+            logger.error(f"❌ 하트 패턴 실행 중 오류: {e}")
+            return False
+    
+    # ===== 모터 제어 패턴 =====
+    
+    async def _move_forward_backward(self):
+        """전진-후진 패턴"""
+        try:
+            await asyncio.sleep(1)  # 시작 전 대기
+            move_forward()
+            await asyncio.sleep(2)
+            if not self.auto_play_running: return
+            move_backward()
+            await asyncio.sleep(2)
+        except Exception as e:
+            logger.error(f"❌ 모터 전진-후진 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _turn_left_right(self):
+        """좌우 회전 패턴"""
+        try:
+            await asyncio.sleep(1)  # 시작 전 대기
+            turn_left()
+            await asyncio.sleep(1)
+            if not self.auto_play_running: return
+            turn_right()
+            await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"❌ 모터 회전 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _random_motor_pattern(self):
+        """랜덤 모터 동작 패턴"""
+        try:
+            patterns = [
+                (move_forward, 1.5),
+                (move_backward, 1.5),
+                (turn_left, 1.0),
+                (turn_right, 1.0)
+            ]
             
-            # 하트 방정식
-            x = 16 * math.sin(rad) ** 3
-            y = -(13 * math.cos(rad) - 5 * math.cos(2*rad) - 2 * math.cos(3*rad) - math.cos(4*rad))
-            
-            # 스케일링 및 이동
-            x = center_x + x * scale
-            y = center_y + y * scale
-            
-            x = max(0, min(180, x))
-            y = max(0, min(180, y))
-            
-            # 비동기 서보 제어 사용
-            await set_xy_servo_angles_async(int(x), int(y))
-            await asyncio.sleep(0.05)
+            for _ in range(4):  # 4가지 동작 무작위로 실행
+                if not self.auto_play_running: break
+                func, duration = random.choice(patterns)
+                func()
+                await asyncio.sleep(duration)
+        except Exception as e:
+            logger.error(f"❌ 랜덤 모터 패턴 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _wave_motor_pattern(self):
+        """파도 모터 패턴 (전진-회전 반복)"""
+        try:
+            for _ in range(3):
+                if not self.auto_play_running: break
+                move_forward()
+                await asyncio.sleep(1)
+                if not self.auto_play_running: break
+                turn_left()
+                await asyncio.sleep(0.5)
+                if not self.auto_play_running: break
+                turn_right()
+                await asyncio.sleep(0.5)
+        except Exception as e:
+            logger.error(f"❌ 파도 모터 패턴 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _spiral_motor_pattern(self):
+        """나선형 모터 패턴"""
+        try:
+            # 원을 그리며 점점 커지는 움직임
+            for i in range(1, 4):
+                if not self.auto_play_running: break
+                turn_left()
+                await asyncio.sleep(0.5 * i)
+                if not self.auto_play_running: break
+                turn_right()
+                await asyncio.sleep(0.5 * i)
+        except Exception as e:
+            logger.error(f"❌ 나선형 모터 패턴 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _zigzag_motor_pattern(self):
+        """지그재그 모터 패턴"""
+        try:
+            for _ in range(4):
+                if not self.auto_play_running: break
+                move_forward()
+                await asyncio.sleep(0.5)
+                if not self.auto_play_running: break
+                turn_left()
+                await asyncio.sleep(0.3)
+                if not self.auto_play_running: break
+                move_forward()
+                await asyncio.sleep(0.5)
+                if not self.auto_play_running: break
+                turn_right()
+                await asyncio.sleep(0.3)
+        except Exception as e:
+            logger.error(f"❌ 지그재그 모터 패턴 오류: {e}")
+        finally:
+            stop_motors()
+    
+    async def _heart_motor_pattern(self):
+        """하트 모터 패턴 (전진-회전-후진)"""
+        try:
+            move_forward()
+            await asyncio.sleep(1)
+            if not self.auto_play_running: return
+            turn_left()
+            await asyncio.sleep(0.5)
+            if not self.auto_play_running: return
+            turn_right()
+            await asyncio.sleep(0.5)
+            if not self.auto_play_running: return
+            move_backward()
+            await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"❌ 하트 모터 패턴 오류: {e}")
+        finally:
+            stop_motors()
     
     def get_status(self):
         """서비스 상태 조회"""
