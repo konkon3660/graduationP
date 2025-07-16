@@ -1,5 +1,5 @@
 # main.py - 업데이트된 메인 서버 (리팩토링된 명령 서비스 적용)
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from routers.ws_router import router as ws_router
 from routers.ws_audio_receive import router as audio_receive_router
@@ -10,8 +10,79 @@ from services.microphone_sender_instance import mic_streamer
 from services.mic_sender_instance import mic_sender
 from services.auto_play_service import auto_play_service
 from services.audio_playback_service import audio_playback_service
+import asyncio
+import time
+import json
+from typing import Dict
 
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.last_heartbeat: Dict[str, float] = {}
+        self.monitor_task = None
+
+    async def start_monitoring(self):
+        """연결 모니터링 시작"""
+        if self.monitor_task is None or self.monitor_task.done():
+            self.monitor_task = asyncio.create_task(self._monitor_connections())
+
+    async def _monitor_connections(self):
+        """연결 상태 모니터링"""
+        while True:
+            current_time = time.time()
+            dead_connections = []
+
+            # 비활성 연결 찾기
+            for client_id, last_time in list(self.last_heartbeat.items()):
+                if current_time - last_time > 30:  # 30초 이상 응답 없으면
+                    dead_connections.append(client_id)
+
+            # 죽은 연결 정리
+            for client_id in dead_connections:
+                ws = self.active_connections.get(client_id)
+                if ws:
+                    try:
+                        await ws.close()
+                    except:
+                        pass
+                    del self.active_connections[client_id]
+                    del self.last_heartbeat[client_id]
+                    print(f"연결 시간 초과로 종료: {client_id}")
+
+            await asyncio.sleep(10)  # 10초마다 확인
+
+    async def connect(self, websocket: WebSocket, client_id: str):
+        await websocket.accept()
+        self.active_connections[client_id] = websocket
+        self.last_heartbeat[client_id] = time.time()
+        print(f"새 클라이언트 연결: {client_id}")
+
+    def disconnect(self, client_id: str):
+        if client_id in self.active_connections:
+            del self.active_connections[client_id]
+        if client_id in self.last_heartbeat:
+            del self.last_heartbeat[client_id]
+        print(f"클라이언트 연결 해제: {client_id}")
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections.values():
+            try:
+                await connection.send_text(message)
+            except:
+                pass
+
+    async def handle_heartbeat(self, client_id: str):
+        """하트비트 메시지 처리"""
+        if client_id in self.last_heartbeat:
+            self.last_heartbeat[client_id] = time.time()
+            return True
+        return False
+
+# FastAPI 앱 초기화
 app = FastAPI()
+
+# WebSocket 연결 관리자 인스턴스
+connection_manager = ConnectionManager()
 
 # CORS 설정 (WebSocket 포함)
 app.add_middleware(
@@ -42,27 +113,31 @@ async def root():
 async def health_check():
     return {"status": "healthy", "message": "서버가 정상 동작 중입니다"}
 
-# ✅ 라우터 등록
-print("🔌 WebSocket 라우터 등록 중...")
+# 라우터 등록
+print("WebSocket 라우터 등록 중...")
 app.include_router(ws_router)
-print("✅ ws_router 등록 완료")
+print("ws_router 등록 완료")
 
 app.include_router(audio_receive_router)
-print("✅ audio_receive_router 등록 완료")
+print("audio_receive_router 등록 완료")
 
 app.include_router(audio_send_router)
-print("✅ audio_send_router 등록 완료")
+print("audio_send_router 등록 완료")
 
 app.include_router(mjpeg_router)
-print("✅ mjpeg_router 등록 완료")
+print("mjpeg_router 등록 완료")
 
 app.include_router(settings_router)
-print("✅ settings_router 등록 완료")
+print("settings_router 등록 완료")
 
+# FastAPI 앱 시작 시 모니터링 시작
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 서버 시작 완료 (하드웨어 제어 모드)")
-    print("🔗 사용 가능한 엔드포인트:")
+    # 기존 startup_event 내용은 여기로 이동
+    await connection_manager.start_monitoring()
+    print("WebSocket 연결 모니터링 시작")
+    print("서버 시작 완료 (하드웨어 제어 모드)")
+    print("사용 가능한 엔드포인트:")
     print("   - /ws (제어 명령)")
     print("   - /ws/audio_receive (서버→클라이언트 음성)")
     print("   - /ws/audio_send (클라이언트→서버 음성)")
