@@ -139,9 +139,6 @@ async def startup_event():
     # 연결 모니터링 시작
     await connection_manager.start_monitoring()
     
-    # 오디오 재생 서비스 시작
-    await audio_playback_service.start_service()
-    
     # 자동 놀이 서비스 초기화 및 시작
     try:
         await auto_play_service.start_service()
